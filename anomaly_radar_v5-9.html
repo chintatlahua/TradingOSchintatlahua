@@ -8,7 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root{
-  --bg:#07070d;--bg2:#0f0f1a;--bg3:#161626;--bg4:#1c1c30;
+  --bg:#0e0f16;--bg2:#161725;--bg3:#1d1e30;--bg4:#1c1c30;
   --border:rgba(255,255,255,0.05);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.22);
   --text:#eeeef8;--muted:#5a5a7a;--muted2:#8888aa;
   --accent:#6c5ce7;--accent2:#00cec9;--accent3:#a29bfe;
@@ -216,9 +216,20 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
 @media(max-width:1000px){.grid-3{grid-template-columns:1fr 1fr;}}
 @media(max-width:700px){.grid-2,.grid-3{grid-template-columns:1fr;}}
 .card{background:var(--bg2);border:0.5px solid var(--border);border-radius:9px;padding:1rem;position:relative;overflow:hidden;}
+/* Jerarquía visual — lo que necesitas ver primero (score, alertas) se distingue
+   con un acento de color y sombra ligera; el contexto de apoyo (macro, métodos,
+   BTC barometer) se atenúa un poco. Nada de esto cambia el orden del layout,
+   solo el peso visual dentro del mismo orden que ya tenías. */
+.card-primary{border-left:2.5px solid var(--tf-color);box-shadow:0 4px 20px rgba(0,0,0,0.25);}
+.card-secondary{opacity:0.88;}
+.card-secondary .card-title{color:var(--muted);}
 .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.18;}
 .card.tf-card::before{background:linear-gradient(90deg,transparent,var(--tf-color),transparent);opacity:0.25;}
 .card.alert-card{border-color:rgba(232,67,147,0.25);}
+/* FIX: sin esto, el border-left teal de .card-primary nunca se vería aquí — .alert-card
+   ya define border-color (las 4 caras) con más especificidad CSS (2 clases vs 1), así
+   que ganaba por encima del acento de jerarquía que se agregó después. */
+.card.alert-card.card-primary{border-left-color:var(--tf-color);}
 .card.alert-card::before{background:linear-gradient(90deg,transparent,var(--danger),transparent);opacity:0.35;}
 .card-title{font-size:8.5px;font-family:var(--font-mono);color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:.85rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .card-badge{font-size:7px;padding:2px 5px;border-radius:2px;letter-spacing:1px;}
@@ -340,9 +351,13 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
   .mtf-grid{grid-template-columns:1fr 1fr;}
   .source-pills{display:none;}
   .credit-meter{min-width:140px;}
-  #asset-toggles{gap:4px;}
-  .asset-toggle{padding:5px 9px;}
-  .at-name{font-size:10px;}
+  #asset-toggles{gap:6px;}
+  /* Antes: padding:5px 9px ≈ 24px de alto real — bajo el mínimo táctil de 44px
+     (WCAG 2.5.5, Apple HIG, Material Design). Ahora ronda los 44px. */
+  .asset-toggle{padding:13px 14px;min-height:44px;}
+  .at-name{font-size:12px;}
+  /* Mismo problema encontrado en los botones de timeframe (1M/5M/15M/etc.) */
+  .tf-btn{padding:11px 13px;font-size:11px;min-height:40px;}
 }
 
 /* ── ALERT HIGHLIGHT — makes anomaly alerts unmissable ── */
@@ -688,7 +703,7 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
 
   <!-- ROW 1 -->
   <div class="grid-2">
-    <div class="card" style="position:relative">
+    <div class="card card-primary" style="position:relative">
       <div class="loading-overlay" id="ov-score"><div class="spinner" id="sp-score"></div><div class="loading-text" id="lt-score">ANALIZANDO...</div></div>
       <div class="card-title">Puntuación de Anomalía <span class="card-badge" id="badge-score">—</span></div>
       <div class="score-display"><div class="score-big" id="score-num">--</div><div><div id="score-level" style="font-size:14px;font-weight:700">—</div><div style="font-size:8.5px;color:var(--muted);font-family:var(--font-mono)" id="score-sub">esperando datos</div></div></div>
@@ -704,15 +719,15 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
 
   <!-- ROW 2 -->
   <div class="grid-3">
-    <div class="card alert-card">
+    <div class="card alert-card card-primary">
       <div class="card-title">🚨 Alertas <span id="alert-count-badge" class="card-badge badge-tf" style="display:none">0</span><button onclick="exportAlertsCSV()" title="Exportar historial de alertas a CSV" style="margin-left:auto;background:transparent;border:0.5px solid var(--border2);border-radius:4px;color:var(--muted2);font-family:var(--font-mono);font-size:7.5px;padding:2px 7px;cursor:pointer;letter-spacing:.5px;" onmouseover="this.style.color='var(--tf-color)';this.style.borderColor='var(--tf-color)'" onmouseout="this.style.color='var(--muted2)';this.style.borderColor='var(--border2)'">↓ CSV</button></div>
       <div class="alert-panel-list" id="alert-panel-list"><div class="no-alerts">Sin anomalías activas</div></div>
     </div>
-    <div class="card">
+    <div class="card card-secondary">
       <div class="card-title">Contexto Macro <span class="card-badge badge-fred">FRED</span></div>
       <div class="context-alerts" id="context-alerts"></div>
     </div>
-    <div class="card">
+    <div class="card card-secondary">
       <div class="card-title">Métodos de Detección <span class="card-badge badge-tf">ESTIMADOR</span></div>
       <div class="methods-grid" id="methods-grid"></div>
       <div style="margin-top:.7rem"><div class="card-title" style="margin-bottom:.5rem">Scores por Activo</div>
@@ -726,7 +741,7 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
       <div class="card-title">Anomalías — Detalle <span class="card-badge" id="badge-anom-detail">—</span></div>
       <div class="anomaly-list" id="anomaly-list"><div class="no-data">Cargando...</div></div>
     </div>
-    <div class="card">
+    <div class="card card-secondary">
       <div class="card-title">BTC Risk Barometer <span class="card-badge badge-tf">ESTIMADOR</span><span id="btc-stale-badge" style="display:none;font-family:var(--font-mono);font-size:7px;color:var(--muted);margin-left:auto">📌 datos de <span id="btc-stale-time">—</span></span></div>
       <div class="chart-wrap" style="height:170px"><canvas id="btc-chart"></canvas></div>
     </div>
@@ -1863,6 +1878,19 @@ async function fetchFromBridge(asset){
     if(!res.ok) return null;
     const d=await res.json();
     if(!d.returns || d.returns.length<20) return null; // muy poco historial, no vale la pena
+    // FIX: el bridge manda 'dates' como timestamps Unix (números, segundos) — el resto
+    // de la app (renderAnomalies, pushAlert, etc.) espera strings tipo TD
+    // ("YYYY-MM-DD HH:MM:SS") para poder hacer .slice(0,16). Sin esta conversión,
+    // cualquier función que llame .slice() sobre un número tronaba silenciosamente
+    // y ese error se propagaba hacia arriba — en refreshAll() eso hacía que la
+    // operación completa cayera a [SIM] (datos simulados falsos) aunque el bridge
+    // sí hubiera respondido bien, específicamente en cualquier activo con score ≥30
+    // (donde se llama pushAlert(), que también formatea la fecha).
+    const pad=n=>String(n).padStart(2,'0');
+    d.dates = d.dates.map(ts=>{
+      const dt=new Date(ts*1000);
+      return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
+    });
     return d;
   }catch(e){ return null; } // bridge no disponible — caso normal, sin log de error
 }
