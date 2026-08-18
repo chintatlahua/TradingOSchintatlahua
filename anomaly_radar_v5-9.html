@@ -253,7 +253,7 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
 .stat-mini-val{font-size:13px;font-weight:700;font-family:var(--font-mono);}
 
 /* ── MTF GRID ── */
-.mtf-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.mtf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;}
 @media(max-width:1100px){.mtf-grid{grid-template-columns:repeat(3,1fr);}}
 .mtf-cell{background:var(--bg2);border:0.5px solid var(--border);border-radius:7px;padding:8px 10px;position:relative;cursor:pointer;transition:all .2s;}
 .mtf-cell:hover{border-color:var(--border2);}
@@ -788,6 +788,7 @@ const ASSETS_DEF = [
   {id:'XAU',name:'Oro',       tdSym:'XAU/USD', yhSym:'GC=F',    display:'XAU/USD',color:'#fdcb6e'},
   {id:'EUR',name:'EURUSD',    tdSym:'EUR/USD', yhSym:'EURUSD=X',display:'EUR/USD',color:'#00b894'},
   {id:'BTC',name:'Bitcoin',   tdSym:'BTC/USD', yhSym:'BTC-USD', display:'BTC/USD',color:'#f7931a'},
+  {id:'VIX',name:'VIX',       tdSym:'VIX',     yhSym:'^VIX',    display:'VIX',    color:'#e17055'},
 ];
 const YH_INTERVAL_MAP={'5min':'5m','15min':'15m','1h':'1h','4h':'1h','1day':'1d'};
 const FRED_SERIES={VIX:{id:'VIXCLS',label:'VIX',fmt:v=>v.toFixed(2)},DXY:{id:'DTWEXBGS',label:'DXY',fmt:v=>v.toFixed(2)},T10Y:{id:'DGS10',label:'10Y',fmt:v=>v.toFixed(2)+'%'},FFR:{id:'FEDFUNDS',label:'Fed Funds',fmt:v=>v.toFixed(2)+'%'}};
@@ -1450,7 +1451,12 @@ function mahalanobisDetect(r,t){
 // BTC típicamente tiene volatilidad intradía aún mayor que WTI, así que 1.8 es un punto de
 // partida conservador, NO calibrado con datos reales — ajústalo si ves falsos "CRÍTICO"
 // constantes en BTC (subir el número) o si se le están escapando anomalías reales (bajarlo).
-const ASSET_VOL_FACTOR = {NQ:1.35, SP:1.2, XAU:1.25, EUR:1.0, BTC:1.8};
+// VIX:2.2 — sin calibrar contra datos reales, igual que el resto (ver nota en
+// patron.py sobre esto). Se puso más alto que BTC (el más tolerante hasta ahora)
+// porque VIX se mueve en términos porcentuales mucho más violentamente incluso en
+// días normales — sin este ajuste, el detector marcaría "CRÍTICO" casi todo el
+// tiempo solo por el ruido normal de VIX, no por una anomalía real.
+const ASSET_VOL_FACTOR = {NQ:1.35, SP:1.2, XAU:1.25, EUR:1.0, BTC:1.8, VIX:2.2};
 
 // Agrupa anomalías cuyos índices están cercanos (gap <= maxGap velas) en "rachas".
 // Distingue un pico aislado (racha de 1) de una condición sostenida (racha de varios
@@ -1865,7 +1871,7 @@ function simulateFallback(asset){
 // Se intenta primero, con timeout corto; si no responde (bridge apagado, Mac
 // cerrada) cae exactamente al flujo TD→Yahoo que ya existía, sin romper nada.
 const BRIDGE_URL = 'https://127.0.0.1:5178';
-const BRIDGE_ASSET_MAP = { NQ: 'nas100', SP: 'us500', XAU: 'xauusd', EUR: 'eurusd', BTC: 'btcusd' }; // WATCHED_SYMBOLS en ctrader_price_bridge.py
+const BRIDGE_ASSET_MAP = { NQ: 'nas100', SP: 'us500', XAU: 'xauusd', EUR: 'eurusd', BTC: 'btcusd', VIX: 'vix' }; // WATCHED_SYMBOLS en ctrader_price_bridge.py
 
 async function fetchFromBridge(asset){
   const bridgeSym = BRIDGE_ASSET_MAP[asset.id];
