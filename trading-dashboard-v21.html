@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Market Pulse · v21</title>
+<!-- preconnect para reducir latencia de Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ══ TOKENS ══ */
+:root{
+  --green:#00d48a;--green2:rgba(0,212,138,.12);
+  --red:#ff4f5e;  --red2:rgba(255,79,94,.12);
+  --yel:#f0b429;  --yel2:rgba(240,180,41,.12);
+  --blue:#4a90e2; --blue2:rgba(74,144,226,.12);
+  --cyan:#00c8e0; --r:10px;
+  /* Fallbacks robustos: si Google Fonts falla, usa fuentes del sistema similares */
+  --sans:'Space Grotesk','DM Sans','Outfit','Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --mono:'Space Mono','JetBrains Mono','Fira Code','Cascadia Code','Consolas','Courier New',monospace;
+}
+[data-theme="dark"]{
+  --bg:#0d0f14;--card:#13161f;--card2:#191d28;--card3:#1f2433;
+  --border:#222736;--border2:#2a3048;
+  --text:#dde3ef;--t2:#6d7a94;--t3:#343d52;--shadow:rgba(0,0,0,.6);
+}
+[data-theme="light"]{
+  --bg:#eef0f5;--card:#ffffff;--card2:#f4f6fa;--card3:#edf0f7;
+  --border:#dde1eb;--border2:#cdd3e0;
+  --text:#1a202c;--t2:#64748b;--t3:#94a3b8;--shadow:rgba(0,0,0,.07);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── HEADER ── */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;background:var(--card);border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px var(--shadow)}
+.h-l{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
+.logo{width:28px;height:28px;background:var(--green);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.logo-t{font-size:13px;font-weight:700;letter-spacing:-.3px}
+.logo-s{font-size:8px;color:var(--t2);letter-spacing:.3px}
+.clk-wrap{display:flex;gap:0;margin-left:4px}
+.clk{padding:0 10px;border-left:1px solid var(--border);text-align:center}
+.clk-v{font-family:var(--mono);font-size:14px;font-weight:400;letter-spacing:.5px;line-height:1.1}
+.clk-v.sm{font-size:11px;color:var(--t2)}
+.clk-l{font-size:7px;color:var(--t3);letter-spacing:1px;margin-top:1px;text-transform:uppercase}
+.h-r{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.stabs{display:flex;background:var(--card2);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.stab{padding:4px 9px;font-size:9px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--t2);font-family:var(--sans);transition:all .15s;text-transform:uppercase;letter-spacing:.3px}
+.stab.on{background:var(--green);color:#000}
+.upd-btn{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:9px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.2px;transition:all .15s}
+.upd-btn:hover{border-color:var(--green);color:var(--green)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.upd-time{font-family:var(--mono);font-size:8px;color:var(--t3)}
+.thm-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--card2);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ── SESSION BAR ── */
+.sbar{padding:4px 16px;background:var(--card);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px}
+.sbar-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+
+/* ── TRADINGVIEW TICKER ── */
+.tv-ticker-wrap{background:var(--card);border-bottom:1px solid var(--border);overflow:hidden;height:46px}
+
+/* ── ASSET TABS ── */
+.abar{display:flex;gap:6px;padding:8px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
+.abar::-webkit-scrollbar{height:3px}
+.atab{flex:1;min-width:110px;display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:var(--r);background:var(--card);border:1.5px solid var(--border);cursor:pointer;transition:all .15s}
+.atab:hover{border-color:var(--border2)}
+.atab.on-sp    {border-color:#4a90e2;background:rgba(74,144,226,.1)}
+.atab.on-wti   {border-color:#f0b429;background:rgba(240,180,41,.1)}
+.atab.on-gold  {border-color:#f0b429;background:rgba(240,180,41,.08)}
+.atab.on-ndx   {border-color:#00c8e0;background:rgba(0,200,224,.08)}
+.atab.on-eurusd{border-color:#00d48a;background:rgba(0,212,138,.1)}
+.atab-em{font-size:17px;line-height:1;flex-shrink:0}
+.atab-body{flex:1;min-width:0}
+.atab-nm{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atab-px{font-family:var(--mono);font-size:10px;color:var(--t2);margin-top:1px}
+.atab-right{display:flex;flex-direction:column;align-items:flex-end;gap:1px;margin-left:auto}
+.atab-sc{font-family:var(--mono);font-size:13px;font-weight:700}
+.atab-sig{font-size:7px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;opacity:.8}
+
+/* ── LAYOUT ── */
+.wrap{padding:10px 16px;display:flex;flex-direction:column;gap:10px}
+.row-ab{display:grid;grid-template-columns:220px 1fr;gap:10px;align-items:start}
+.row-b-inner{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.row-c{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.row-d{display:grid;grid-template-columns:200px 200px 1fr;gap:10px;align-items:start}
+@media(max-width:1000px){
+  .row-ab{grid-template-columns:1fr}
+  .row-b-inner{grid-template-columns:repeat(3,1fr)}
+  .row-d{grid-template-columns:1fr 1fr 1fr}
+}
+@media(max-width:700px){
+  .clk-wrap{display:none}
+  .row-ab{grid-template-columns:1fr}
+  .row-b-inner{grid-template-columns:repeat(2,1fr)}
+  .row-c{grid-template-columns:1fr 1fr}
+  .row-d{grid-template-columns:1fr 1fr}
+  .ntbl .td-i{display:none}
+  .abar{padding:6px 10px}
+}
+@media(max-width:480px){
+  .row-b-inner{grid-template-columns:1fr 1fr}
+  .row-c{grid-template-columns:1fr}
+  .row-d{grid-template-columns:1fr}
+  .hdr{padding:5px 10px}
+}
+
+/* ── CARDS ── */
+.card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);padding:12px;box-shadow:0 1px 6px var(--shadow)}
+.card-t{font-size:8px;font-weight:700;color:var(--t2);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.badge{padding:2px 7px;border-radius:20px;font-size:8px;font-weight:600;background:var(--card2);border:1px solid var(--border);color:var(--t2)}
+
+/* ── SCORE CARD ── */
+.score-card{display:flex;flex-direction:column;align-items:center;text-align:center;gap:0}
+.sc-asset{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.3px;margin-bottom:8px}
+.sc-num{font-family:var(--mono);font-size:38px;font-weight:700;letter-spacing:-2px;line-height:1;margin-bottom:2px}
+.sc-max{font-size:9px;color:var(--t3);font-family:var(--mono);margin-bottom:10px}
+
+/* ── SCORE GAUGE ── */
+.score-gauge-wrap{width:100%;margin-bottom:10px}
+.score-gauge-track{width:100%;height:6px;background:var(--card3);border-radius:3px;overflow:hidden;position:relative}
+.score-gauge-fill{height:100%;border-radius:3px;transition:width .5s ease,background .5s ease}
+.score-gauge-labels{display:flex;justify-content:space-between;margin-top:3px}
+.score-gauge-labels span{font-size:7px;color:var(--t3);font-family:var(--mono)}
+
+.sig-pill{padding:6px 16px;border-radius:7px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:1.5px solid;margin-bottom:10px}
+.sig-pill.g{color:var(--green);border-color:var(--green);background:var(--green2)}
+.sig-pill.y{color:var(--yel);border-color:var(--yel);background:var(--yel2)}
+.sig-pill.r{color:var(--red);border-color:var(--red);background:var(--red2)}
+.sc-ctx{font-family:var(--mono);font-size:8px;color:var(--t3);background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;width:100%;line-height:1.8;margin-bottom:8px}
+.sc-rsn{font-size:9px;color:var(--t2);line-height:1.7;border-top:1px solid var(--border);padding-top:8px;text-align:left;width:100%}
+
+/* ── SCORE BREAKDOWN TOOLTIP ── */
+.sc-breakdown{width:100%;margin-bottom:8px}
+.sc-bk-row{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border)}
+.sc-bk-row:last-child{border-bottom:none}
+.sc-bk-lbl{font-size:8px;color:var(--t2);width:68px;flex-shrink:0}
+.sc-bk-bar-track{flex:1;height:4px;background:var(--card3);border-radius:2px;overflow:hidden}
+.sc-bk-bar{height:100%;border-radius:2px;transition:width .4s ease}
+.sc-bk-val{font-size:8px;font-family:var(--mono);width:28px;text-align:right;flex-shrink:0}
+
+/* ── CORRELACIONES ── */
+.corr-list{display:flex;flex-direction:column;gap:5px}
+.corr-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;border:1px solid}
+.corr-row.r{background:var(--red2);border-color:rgba(255,79,94,.25)}
+.corr-row.g{background:var(--green2);border-color:rgba(0,212,138,.25)}
+.corr-row.y{background:var(--yel2);border-color:rgba(240,180,41,.25)}
+.corr-row.b{background:rgba(74,144,226,.1);border-color:rgba(74,144,226,.25)}
+.corr-ic{font-size:15px;flex-shrink:0}
+.corr-body{flex:1;min-width:0}
+.corr-cond{font-size:10px;font-weight:700;margin-bottom:1px}
+.corr-impl{font-size:9px;color:var(--t2);line-height:1.4}
+.corr-str{font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--card3);white-space:nowrap;flex-shrink:0}
+
+/* ── MINI INDICATOR CARDS ── */
+.ind-card{background:var(--card2);border-radius:8px;border:1px solid var(--border);padding:10px;display:flex;flex-direction:column;gap:4px}
+.ind-lbl{font-size:8px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase}
+.ind-val{font-family:var(--mono);font-size:20px;font-weight:700;line-height:1;letter-spacing:-1px}
+.ind-sig{font-size:8px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:2px 8px;border-radius:4px;align-self:flex-start;margin-top:1px}
+.ind-sig.g{background:var(--green2);color:var(--green)}
+.ind-sig.y{background:var(--yel2);color:var(--yel)}
+.ind-sig.r{background:var(--red2);color:var(--red)}
+.ind-desc{font-size:9px;color:var(--t2);line-height:1.35;margin-top:2px}
+.ind-ref{font-size:8px;color:var(--t3);margin-top:1px;font-family:var(--mono)}
+.ind-weight{font-size:7px;color:var(--cyan);opacity:.8;margin-top:1px}
+
+/* ── CHART.JS CARDS ── */
+.chart-card{display:flex;flex-direction:column;gap:0}
+.chart-head{display:flex;align-items:baseline;justify-content:space-between;padding:12px 12px 6px}
+.chart-nm{font-size:12px;font-weight:700}
+.chart-val{font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:-1px}
+.chart-chg{font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px}
+.chart-src{font-size:8px;color:var(--t3);padding:2px 6px;border-radius:4px;background:var(--card2);border:1px solid var(--border)}
+.cj-wrap{width:100%;height:140px;position:relative;padding:0 4px}
+.cj-wrap canvas{display:block;width:100%!important;height:140px!important}
+.chart-foot{display:flex;justify-content:space-between;padding:2px 12px 8px;gap:4px}
+.chart-foot span{font-size:7px;color:var(--t3);font-family:var(--mono)}
+/* Canvas fallback (legacy, keep for build7d) */
+.chart-box{width:100%;height:110px}
+.chart-days{display:flex;justify-content:space-between;padding:0 2px;margin-top:2px}
+.chart-days span{font-size:7px;color:var(--t3)}
+
+/* ── FEAR & GREED ── */
+.fg-arc-wrap{display:flex;justify-content:center;margin:4px 0 6px}
+.fg-arc-wrap svg{overflow:visible}
+.fg-num-big{font-family:var(--mono);font-size:46px;font-weight:700;line-height:1;letter-spacing:-3px}
+.fg-lbl{font-size:11px;color:var(--t2);font-weight:500;margin-top:3px}
+.fg-seg-track{display:flex;gap:2px;margin-top:8px;height:6px}
+.fg-seg{flex:1;border-radius:3px}
+
+/* ── TASAS ── */
+.rate-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.rate-row:last-child{border-bottom:none}
+.rate-lbl{font-size:11px;font-weight:600;color:var(--t2)}
+.rate-val{font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:-1px}
+.rate-chg{font-size:9px;font-weight:600;padding:1px 5px;border-radius:4px;margin-left:5px}
+.spread-row{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;margin-top:6px}
+
+/* ── TABLE ── */
+.ntbl{width:100%;border-collapse:collapse;font-size:10px}
+.ntbl th{padding:5px 8px;text-align:left;font-size:7px;letter-spacing:1.2px;color:var(--t3);text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--border);background:var(--card2)}
+.ntbl td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ntbl tr:last-child td{border-bottom:none}
+.ntbl tr:hover td{background:var(--card2)}
+
+/* ── DATA QUALITY BADGE ── */
+.dq-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:8px;font-weight:600;background:var(--card2);border:1px solid var(--border)}
+.dq-ok{border-color:rgba(0,212,138,.3);color:var(--green)}
+.dq-warn{border-color:rgba(240,180,41,.3);color:var(--yel)}
+.dq-err{border-color:rgba(255,79,94,.3);color:var(--red)}
+
+/* ── LOADING ── */
+.lov{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity .5s}
+.lb{width:120px;height:2px;background:var(--border);border-radius:10px;overflow:hidden;margin-top:10px}
+.lf{height:100%;background:var(--green);animation:lbar 1.4s ease forwards}
+@keyframes lbar{from{width:0}to{width:100%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite;display:inline-block}
+</style>
+<!-- Chart.js desde CDN gratuito — charts VIX / DXY / Gold con datos Yahoo Finance -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="os-core.js"></script>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="lov" id="lov">
+  <div style="font-size:28px">📊</div>
+  <div style="font-family:var(--mono);font-size:9px;color:var(--green);letter-spacing:3px;margin:8px 0">MARKET PULSE · v21</div>
+  <div class="lb"><div class="lf"></div></div>
+  <div style="font-size:8px;color:var(--t3);margin-top:8px;font-family:var(--mono);letter-spacing:1px">CONECTANDO CON YAHOO FINANCE + FRED…</div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="h-l">
+    <div class="logo">📈</div>
+    <div><div class="logo-t">Market Pulse</div><div class="logo-s">Yahoo Finance + FRED + Pepperstone · v21</div></div>
+    <div class="clk-wrap">
+      <div class="clk">
+        <div class="clk-v" id="clkNY">--:--:--</div>
+        <div class="clk-l" id="clkSess">NY · ET</div>
+      </div>
+      <div class="clk">
+        <div class="clk-v sm" id="clkMX">--:--</div>
+        <div class="clk-l">🇲🇽 CDMX</div>
+      </div>
+    </div>
+  </div>
+  <div class="h-r">
+    <div class="stabs">
+      <button class="stab on" onclick="setSess('premarket',this)">Pre-Mkt</button>
+      <button class="stab"    onclick="setSess('nyse',this)">NYSE</button>
+      <button class="stab"    onclick="setSess('asia',this)">Asia/EU</button>
+      <button class="stab"    onclick="setSess('general',this)">General</button>
+    </div>
+    <button class="upd-btn" onclick="doFetch()">
+      <div class="live-dot"></div>
+      <span id="updTxt">Actualizar</span>
+    </button>
+    <span class="upd-time" id="updTime">--</span>
+    <button class="thm-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+</div>
+
+<!-- SESSION BAR -->
+<div class="sbar">
+  <div class="sbar-dot" id="sbarDot"></div>
+  <span id="sbarTxt"></span>
+  <span style="margin-left:auto;display:flex;gap:6px" id="dataQualityBar"></span>
+</div>
+
+<!-- TRADINGVIEW TICKER TAPE — gratuito, sin restricción de plan -->
+<div class="tv-ticker-wrap" id="tvTickerWrap">
+  <div class="tradingview-widget-container" style="height:46px;width:100%">
+    <div class="tradingview-widget-container__widget"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+    {
+      "symbols": [
+        {"proName":"FOREXCOM:SPXUSD","title":"SP500"},
+        {"proName":"FOREXCOM:NSXUSD","title":"Nasdaq"},
+        {"proName":"TVC:USOIL",      "title":"WTI"},
+        {"proName":"TVC:GOLD",       "title":"Gold"},
+        {"proName":"FOREXCOM:EURUSD","title":"EUR/USD"},
+        {"proName":"FOREXCOM:USDJPY","title":"USD/JPY"},
+        {"proName":"CAPITALCOM:DXY", "title":"DXY"},
+        {"proName":"TVC:UKOIL",      "title":"Brent"}
+      ],
+      "showSymbolLogo": false,
+      "isTransparent": true,
+      "displayMode": "compact",
+      "colorTheme": "dark",
+      "locale": "es",
+      "autosize": true
+    }
+    </script>
+  </div>
+</div>
+
+<!-- ASSET TABS -->
+<div class="abar" id="abar">
+  <div class="atab on-sp"  id="at-sp"     onclick="setAsset('sp',this)">    <span class="atab-em">🏦</span><div class="atab-body"><div class="atab-nm">SP500 / US500</div><div class="atab-px" id="px-sp">ES --</div></div><div class="atab-right"><div class="atab-sc" id="sc-sp" style="color:#4a90e2">--</div><div class="atab-sig" id="sg-sp" style="color:#4a90e2">--</div></div></div>
+  <div class="atab"        id="at-wti"    onclick="setAsset('wti',this)">   <span class="atab-em">🛢️</span><div class="atab-body"><div class="atab-nm">WTI Petróleo</div><div class="atab-px" id="px-wti">CL --</div></div><div class="atab-right"><div class="atab-sc" id="sc-wti" style="color:#f0b429">--</div><div class="atab-sig" id="sg-wti" style="color:#f0b429">--</div></div></div>
+  <div class="atab"        id="at-gold"   onclick="setAsset('gold',this)">  <span class="atab-em">🥇</span><div class="atab-body"><div class="atab-nm">Gold / XAU</div><div class="atab-px" id="px-gold">GC --</div></div><div class="atab-right"><div class="atab-sc" id="sc-gold" style="color:#f0b429">--</div><div class="atab-sig" id="sg-gold" style="color:#f0b429">--</div></div></div>
+  <div class="atab"        id="at-ndx"    onclick="setAsset('ndx',this)">   <span class="atab-em">💻</span><div class="atab-body"><div class="atab-nm">Nasdaq 100</div><div class="atab-px" id="px-ndx">NQ --</div></div><div class="atab-right"><div class="atab-sc" id="sc-ndx" style="color:#00c8e0">--</div><div class="atab-sig" id="sg-ndx" style="color:#00c8e0">--</div></div></div>
+  <div class="atab"        id="at-eurusd" onclick="setAsset('eurusd',this)"><span class="atab-em">💱</span><div class="atab-body"><div class="atab-nm">EUR / USD</div><div class="atab-px" id="px-eurusd">FX --</div></div><div class="atab-right"><div class="atab-sc" id="sc-eurusd" style="color:#00d48a">--</div><div class="atab-sig" id="sg-eurusd" style="color:#00d48a">--</div></div></div>
+  <div class="atab"        id="at-btc"    onclick="setAsset('btc',this)">   <span class="atab-em">₿</span><div class="atab-body"><div class="atab-nm">Bitcoin</div><div class="atab-px" id="px-btc">BTC --</div></div><div class="atab-right"><div class="atab-sc" id="sc-btc" style="color:#f7931a">--</div><div class="atab-sig" id="sg-btc" style="color:#f7931a">--</div></div></div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="wrap">
+
+  <!-- ROW A: Score + Correlaciones -->
+  <div class="row-ab">
+
+    <!-- Score Card mejorado -->
+    <div class="card score-card">
+      <div class="sc-asset" id="scAsset">SP500 / US500</div>
+      <div class="sc-num" id="scNum" style="color:#4a90e2">--</div>
+      <div class="sc-max" id="scMax">/ -- puntos posibles</div>
+
+      <!-- Gauge visual normalizado -->
+      <div class="score-gauge-wrap" id="scoreGaugeWrap">
+        <div class="score-gauge-track">
+          <div class="score-gauge-fill" id="scoreGaugeFill" style="width:50%;background:var(--yel)"></div>
+        </div>
+        <div class="score-gauge-labels">
+          <span>Muy bajista</span>
+          <span>Neutro</span>
+          <span>Muy alcista</span>
+        </div>
+      </div>
+
+      <div class="sig-pill y" id="sigPill">◆ CALCULANDO</div>
+
+      <!-- Breakdown por indicador -->
+      <div class="sc-breakdown" id="scBreakdown"></div>
+
+      <div class="sc-ctx" id="scCtx">—</div>
+      <div class="sc-rsn" id="scRsn">Calculando…</div>
+    </div>
+
+    <!-- Correlaciones + Indicadores 3x2 -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+
+      <!-- Correlaciones activas -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-t" style="margin-bottom:0">Correlaciones activas ahora</div>
+          <div class="badge" id="corrBadge">--</div>
+        </div>
+        <div class="corr-list" id="corrList">
+          <div style="color:var(--t3);font-size:10px;text-align:center;padding:12px">Cargando datos…</div>
+        </div>
+      </div>
+
+      <!-- 6 mini indicadores del activo -->
+      <div class="card" style="padding:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="card-t" style="margin-bottom:0">Indicadores macro — <span id="indAssetLbl">SP500</span></div>
+          <div class="badge" id="indBadge">6 indicadores</div>
+        </div>
+        <div class="row-b-inner" id="indGrid"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ROW C: VIX | DXY | GOLD — Chart.js con datos Yahoo Finance
+       Actualización automática en cada doFetch() cada 3 minutos
+       Sin dependencias externas — datos reales de Yahoo Finance
+  -->
+  <div class="row-c">
+
+    <!-- VIX -->
+    <div class="card chart-card" style="padding:0">
+      <div class="chart-head">
+        <div>
+          <div class="chart-nm">VIX · Volatilidad</div>
+          <div style="display:flex;align-items:baseline;gap:0;margin-top:2px">
+            <span class="chart-val" id="vixVal">--</span>
+            <span class="chart-chg" id="vixChg"></span>
+          </div>
+        </div>
+        <div class="chart-src">CBOE · Yahoo Finance</div>
+      </div>
+      <div class="cj-wrap"><canvas id="vixC"></canvas></div>
+      <div class="chart-foot" id="vixFoot"></div>
+    </div>
+
+    <!-- DXY -->
+    <div class="card chart-card" style="padding:0">
+      <div class="chart-head">
+        <div>
+          <div class="chart-nm">DXY · Dólar Index</div>
+          <div style="display:flex;align-items:baseline;gap:0;margin-top:2px">
+            <span class="chart-val" id="dxyVal">--</span>
+            <span class="chart-chg" id="dxyChg"></span>
+          </div>
+        </div>
+        <div class="chart-src">ICE · Yahoo Finance</div>
+      </div>
+      <div class="cj-wrap"><canvas id="dxyC"></canvas></div>
+      <div class="chart-foot" id="dxyFoot"></div>
+    </div>
+
+    <!-- GOLD -->
+    <div class="card chart-card" style="padding:0">
+      <div class="chart-head">
+        <div>
+          <div class="chart-nm">Gold · XAU/USD</div>
+          <div style="display:flex;align-items:baseline;gap:0;margin-top:2px">
+            <span class="chart-val" id="goldVal">--</span>
+            <span class="chart-chg" id="goldChg"></span>
+          </div>
+        </div>
+        <div class="chart-src">CME · Yahoo Finance</div>
+      </div>
+      <div class="cj-wrap"><canvas id="goldC"></canvas></div>
+      <div class="chart-foot" id="goldFoot"></div>
+    </div>
+
+  </div>
+
+  <!-- ROW D: Fear&Greed | Tasas 10Y/2Y | Tabla -->
+  <div class="row-d">
+
+    <!-- Fear & Greed con arco SVG -->
+    <div class="card" style="padding:12px">
+      <div class="card-t">Fear & Greed</div>
+      <div class="fg-arc-wrap">
+        <svg width="120" height="70" viewBox="0 0 120 70">
+          <!-- track -->
+          <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="10" stroke-linecap="round"/>
+          <!-- colored fill -->
+          <path id="fgArcFill" d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="#f0b429" stroke-width="10" stroke-linecap="round"
+                stroke-dasharray="157" stroke-dashoffset="79" style="transition:stroke-dashoffset .6s ease,stroke .6s ease"/>
+          <!-- needle -->
+          <line id="fgNeedle" x1="60" y1="60" x2="60" y2="16" stroke="white" stroke-width="1.5" stroke-linecap="round"
+                style="transition:transform .6s ease;transform-origin:60px 60px"/>
+          <circle cx="60" cy="60" r="4" fill="white" opacity=".9"/>
+        </svg>
+      </div>
+      <div id="fgNum" class="fg-num-big" style="text-align:center;display:block;color:var(--yel)">--</div>
+      <div class="fg-lbl" id="fgLbl" style="text-align:center">—</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="font-size:8px;color:var(--t3);margin-bottom:3px">FUENTE</div>
+        <div style="font-size:8px;color:var(--t2)">alternative.me · Cripto F&G proxy</div>
+        <div style="font-size:8px;color:var(--t3);margin-top:4px" id="fgSignal">—</div>
+      </div>
+    </div>
+
+    <!-- Tasas US 10Y / 2Y -->
+    <div class="card" style="padding:12px">
+      <div class="card-t">Tasas US Treasuries</div>
+      <div class="rate-row">
+        <div>
+          <div class="rate-lbl">10Y</div>
+          <div style="font-size:8px;color:var(--t3)">T-Note</div>
+        </div>
+        <div style="text-align:right">
+          <div style="display:flex;align-items:baseline;gap:0">
+            <span class="rate-val" id="y10Val">--</span>
+            <span style="font-size:11px;color:var(--t2);margin-left:2px">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="rate-row">
+        <div>
+          <div class="rate-lbl">2Y</div>
+          <div style="font-size:8px;color:var(--t3)">T-Bill</div>
+        </div>
+        <div style="text-align:right">
+          <div style="display:flex;align-items:baseline;gap:0">
+            <span class="rate-val" id="y2Val">--</span>
+            <span style="font-size:11px;color:var(--t2);margin-left:2px">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="spread-row" id="spreadRow" style="background:var(--card2)">
+        <div>
+          <div style="font-size:9px;font-weight:700;color:var(--t2)">Spread 2s10s</div>
+          <div style="font-size:8px;color:var(--t3)" id="spreadLbl">—</div>
+        </div>
+        <div class="rate-val" style="font-size:20px" id="spreadVal">--</div>
+      </div>
+      <!-- HY Spread extra -->
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="font-size:8px;color:var(--t3);margin-bottom:3px">HY CREDIT SPREAD (FRED)</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-family:var(--mono);font-size:16px;font-weight:700" id="hyVal">--</span>
+          <span style="font-size:8px;color:var(--t2)">% · OAS</span>
+        </div>
+        <div style="font-size:8px;color:var(--t3);margin-top:2px" id="hyLbl">—</div>
+      </div>
+    </div>
+
+    <!-- Tabla compacta -->
+    <div class="card" style="padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="card-t" style="margin-bottom:0">Tabla — <span id="tblAsset">SP500</span></div>
+        <div class="badge" id="srcBadge">Yahoo + FRED</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="ntbl">
+          <thead><tr>
+            <th>Indicador</th>
+            <th>Valor</th>
+            <th>Ref.</th>
+            <th>Peso</th>
+            <th>Señal</th>
+            <th class="td-i">Lectura</th>
+          </tr></thead>
+          <tbody id="ntBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /wrap -->
+
+<script>
+// ══════════════════════════════════════════════════════
+//  THEME
+// ══════════════════════════════════════════════════════
+let isDark = true;
+function toggleTheme() {
+  isDark = !isDark;
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = isDark ? '🌙' : '☀️';
+  // TradingView widgets no se pueden retheme en caliente — solo recargan al refrescar
+}
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+let CUR = 'sp', SESS = 'premarket', MKT = {}, isLoading = false;
+
+// ══════════════════════════════════════════════════════
+//  SESSION CONFIG  (pesos por sesión para cada activo)
+//  Cada peso es multiplicador del score raw del indicador.
+//  Mayor peso = ese indicador domina el score en esa sesión.
+// ══════════════════════════════════════════════════════
+const SC = {
+  premarket: {
+    label: 'PRE-MARKET NY', color: '#00c8e0',
+    ctx: 'Pre-apertura: futuros ES y DXY son clave.',
+    spW:  { vix:1.5, high_yield_spread:.8,  put_call_ratio:1.0, fear_greed:.8,  two_ten_spread:.6,  dxy:1.2 },
+    wtiW: { wti:1.2, dxy:1.5, crb:.8,       eia_inventories:1.0, ted_spread:.6,  vix:1.0 },
+  },
+  nyse: {
+    label: 'SESIÓN NYSE', color: '#00d48a',
+    ctx: 'Sesión abierta: P/C, HY Spread y EIA son drivers.',
+    spW:  { vix:1.0, high_yield_spread:1.5, put_call_ratio:1.5, fear_greed:1.2, two_ten_spread:.8,  dxy:.8  },
+    wtiW: { wti:1.0, dxy:1.0, crb:1.2,      eia_inventories:1.5, ted_spread:.8,  vix:.8  },
+  },
+  asia: {
+    label: 'ASIA / EU / POST', color: '#4a90e2',
+    ctx: 'Overnight: 2s10s, DXY y macro global dominan.',
+    spW:  { vix:.8,  high_yield_spread:1.2, put_call_ratio:.6,  fear_greed:.6,  two_ten_spread:1.5, dxy:1.5 },
+    wtiW: { wti:.8,  dxy:1.5, crb:1.5,      eia_inventories:.8,  ted_spread:1.2, vix:.8  },
+  },
+  general: {
+    label: 'GENERAL', color: '#7a8599',
+    ctx: 'Vista macro: todos los indicadores con peso igual.',
+    spW:  { vix:1, high_yield_spread:1, put_call_ratio:1, fear_greed:1, two_ten_spread:1, dxy:1 },
+    wtiW: { wti:1, dxy:1, crb:1, eia_inventories:1, ted_spread:1, vix:1 },
+  },
+};
+
+// ══════════════════════════════════════════════════════
+//  ASSET CONFIG
+//  • inds(d)  → array de indicadores visuales
+//  • ctx(d)   → string resumen de contexto
+//  • rsn(sig,d) → string explicación de señal
+// ══════════════════════════════════════════════════════
+const AC = {
+  sp: {
+    label:'SP500 / US500', short:'SP500', emoji:'🏦', col:'#4a90e2', wKey:'spW',
+    inds: d => [
+      { k:'vix',               lbl:'VIX',      v:fv(d.vix,1),                      ref:'< 20 normal',    ip:ip('vix',d.vix) },
+      { k:'dxy',               lbl:'DXY',      v:fv(d.dxy,1),                      ref:'< 104 neutro',   ip:ip('dxy',d.dxy),    inv:1 },
+      { k:'high_yield_spread', lbl:'HY SPR.',  v:fv(d.high_yield_spread,2)+'%',    ref:'< 4.5% ok',      ip:ip('hy',d.high_yield_spread) },
+      { k:'put_call_ratio',    lbl:'P/C',      v:fv(d.put_call_ratio,2),            ref:'0.75-0.95 óptimo', ip:'⚠ Proxy VIX-based · '+ip('pc',d.put_call_ratio) },
+      { k:'fear_greed',        lbl:'F&G',      v:''+d.fear_greed,                  ref:'35-65 equilibrio',ip:ip('fg',d.fear_greed) },
+      { k:'two_ten_spread',    lbl:'2s10s',    v:fv(d.two_ten_spread,2)+'%',       ref:'> 0 sano',       ip:ip('2s',d.two_ten_spread) },
+    ],
+    ctx: d => `VIX ${fv(d.vix,1)} · DXY ${fv(d.dxy,1)} · F&G ${d.fear_greed} · HY ${fv(d.high_yield_spread,2)}%`,
+    rsn: (sig,d) => {
+      const vixTxt = d.vix<20 ? '(vol normal ✓)' : '(volatilidad alta ⚠)';
+      const dxyTxt = d.dxy<104 ? '— neutro ✓' : '— dólar fuerte ⚠';
+      const fgTxt = d.fear_greed<35 ? '(miedo — precaución)' : d.fear_greed>65 ? '(codicia — precaución largo)' : '(equilibrio)';
+      const base = `VIX ${fv(d.vix,1)} ${vixTxt}. DXY ${fv(d.dxy,1)} ${dxyTxt}. F&G ${d.fear_greed} ${fgTxt}.`;
+      return base + (sig==='g' ? ' Condiciones macro para largos.' : sig==='r' ? ' Condiciones adversas — cortos favorecidos.' : ' Señales mixtas — esperar confirmación.');
+    },
+  },
+  wti: {
+    label:'WTI Petróleo', short:'WTI', emoji:'🛢️', col:'#f0b429', wKey:'wtiW',
+    inds: d => [
+      { k:'wti',            lbl:'WTI SPOT', v:'$'+fv(d.wti,1),                        ref:'Precio spot CL',   ip:'Precio actual futuro WTI', raw: d.wti>(d.wti_prev||d.wti) ? .5 : -.5 },
+      { k:'dxy',            lbl:'DXY INV.', v:fv(d.dxy,1),                            ref:'DXY↓ = WTI↑',     ip:ip('dxy',d.dxy), inv:1 },
+      { k:'crb',            lbl:'CRB',      v:fv(d.crb,0),                            ref:'> 270 alcista',   ip:ip('crb',d.crb) },
+      { k:'eia_inventories',lbl:'EIA INV.', v:(d.eia_inventories>0?'+':'')+fv(d.eia_inventories,1)+'M', ref:'< 0 alcista', ip:ip('eia',d.eia_inventories) },
+      { k:'brent',          lbl:'BRENT SPR',v:(()=>{const s=d.brent-d.wti;return(s>=0?'-':'+')+Math.abs(s).toFixed(1)})(), ref:'Normal -3/-5', ip:'Spread WTI-Brent', raw:Math.abs(d.brent-d.wti)<6?.5:-.5 },
+      { k:'vix',            lbl:'VIX',      v:fv(d.vix,1),                            ref:'< 20 normal',     ip:ip('vix',d.vix), raw:d.vix>30?-1:d.vix>20?-.5:.5 },
+    ],
+    ctx: d => `WTI $${fv(d.wti,1)} · Brent $${fv(d.brent,1)} · EIA ${d.eia_inventories>0?'+':''}${fv(d.eia_inventories,1)}M`,
+    rsn: (sig,d) => `WTI $${fv(d.wti,1)}, Brent $${fv(d.brent,1)}. EIA ${d.eia_inventories>0?'+':''}${fv(d.eia_inventories,1)}M barr. DXY ${fv(d.dxy,1)} — ${d.dxy<103 ? 'favorece WTI ✓' : 'presión sobre WTI ⚠'}.` + (sig==='g' ? ' Largos WTI favorables.' : sig==='r' ? ' Cortos WTI — presión bajista.' : ' Esperar dirección.'),
+  },
+  gold: {
+    label:'Gold / XAU', short:'GOLD', emoji:'🥇', col:'#f0b429', wKey:null,
+    inds: d => [
+      { k:'dxy',               lbl:'DXY INV.',  v:fv(d.dxy,1),                    ref:'DXY↓ = Gold↑',  ip:ip('dxy',d.dxy), inv:1 },
+      { k:'vix',               lbl:'VIX',       v:fv(d.vix,1),                    ref:'> 25 = refugio',ip:'Pánico activa refugio', raw:d.vix>25?1:d.vix>20?.5:-.5 },
+      { k:'two_ten_spread',    lbl:'2s10s',     v:fv(d.two_ten_spread,2)+'%',    ref:'< 0 = alcista oro', ip:ip('2s',d.two_ten_spread), inv:1 },
+      { k:'fear_greed',        lbl:'F&G',       v:''+d.fear_greed,               ref:'< 30 = refugio', ip:'Miedo extremo activa oro', raw:d.fear_greed<30?1:d.fear_greed<50?.5:-.5 },
+      { k:'ted_spread',        lbl:'PRIME SPR.', v:fv(d.ted_spread,3)+'%',       ref:'> 0.3 = estrés', ip:ip('ted',d.ted_spread), raw:d.ted_spread>.3?1:d.ted_spread>.15?.5:-.5 },
+      { k:'high_yield_spread', lbl:'HY SPR.',   v:fv(d.high_yield_spread,2)+'%', ref:'> 4.5 = riesgo', ip:ip('hy',d.high_yield_spread), raw:d.high_yield_spread>4.5?1:d.high_yield_spread>3.5?.3:-.3 },
+    ],
+    ctx: d => `DXY ${fv(d.dxy,1)} · VIX ${fv(d.vix,1)} · F&G ${d.fear_greed} · PRIME SPR ${fv(d.ted_spread,3)}%`,
+    rsn: (sig,d) => `DXY ${fv(d.dxy,1)} ${d.dxy<104 ? '— favorece oro ✓' : '— presiona oro ⚠'}. VIX ${fv(d.vix,1)} ${d.vix>25 ? '— pánico activa refugio ✓' : '— sin pánico sistémico'}. F&G ${d.fear_greed} ${d.fear_greed<30 ? '— miedo extremo = refugio ✓' : ''}.` + (sig==='g' ? ' LARGOS GOLD favorables.' : sig==='r' ? ' Contexto adverso para oro.' : ' Señales mixtas.'),
+  },
+  ndx: {
+    label:'Nasdaq 100', short:'NQ', emoji:'💻', col:'#00c8e0', wKey:null,
+    inds: d => [
+      { k:'vix',               lbl:'VIX',     v:fv(d.vix,1),                    ref:'< 20 normal',    ip:ip('vix',d.vix) },
+      { k:'dxy',               lbl:'DXY',     v:fv(d.dxy,1),                    ref:'< 104 neutro',   ip:ip('dxy',d.dxy), inv:1 },
+      { k:'put_call_ratio',    lbl:'P/C',     v:fv(d.put_call_ratio,2),          ref:'0.75-0.95 óptimo', ip:'⚠ Proxy VIX-based · '+ip('pc',d.put_call_ratio) },
+      { k:'fear_greed',        lbl:'F&G',     v:''+d.fear_greed,               ref:'35-65 equilibrio',ip:ip('fg',d.fear_greed) },
+      { k:'high_yield_spread', lbl:'HY SPR.', v:fv(d.high_yield_spread,2)+'%', ref:'< 4.5% ok',       ip:ip('hy',d.high_yield_spread) },
+      { k:'two_ten_spread',    lbl:'2s10s',   v:fv(d.two_ten_spread,2)+'%',    ref:'> 0 sano',        ip:ip('2s',d.two_ten_spread) },
+    ],
+    ctx: d => `VIX ${fv(d.vix,1)} · DXY ${fv(d.dxy,1)} · P/C ${fv(d.put_call_ratio,2)} · F&G ${d.fear_greed}`,
+    rsn: (sig,d) => `VIX ${fv(d.vix,1)} ${d.vix<20?'✓':'⚠'}. DXY ${fv(d.dxy,1)} — tech con ingresos globales, dólar fuerte presiona NQ más que SP500.` + (sig==='g' ? ' Momentum Nasdaq positivo — largos.' : sig==='r' ? ' Presión sobre tech — cortos NQ.' : ' Contexto mixto.'),
+  },
+  eurusd: {
+    label:'EUR / USD', short:'EURUSD', emoji:'💱', col:'#00d48a', wKey:null,
+    inds: d => [
+      { k:'dxy',               lbl:'DXY',     v:fv(d.dxy,1),                    ref:'DXY↓ = EUR↑',    ip:ip('dxy',d.dxy), inv:1 },
+      { k:'two_ten_spread',    lbl:'2s10s',   v:fv(d.two_ten_spread,2)+'%',    ref:'> 0 normal',      ip:ip('2s',d.two_ten_spread) },
+      { k:'ted_spread',        lbl:'PRIME SPR.',v:fv(d.ted_spread,3)+'%',        ref:'< 0.25 estable',  ip:ip('ted',d.ted_spread), inv:1 },
+      { k:'vix',               lbl:'VIX',     v:fv(d.vix,1),                    ref:'> 25 = fuga USD', ip:'VIX alto = fuga a USD', raw:d.vix>25?-.5:.5 },
+      { k:'fear_greed',        lbl:'F&G',     v:''+d.fear_greed,               ref:'< 35 = fuga USD', ip:'Miedo = fuga a USD', raw:d.fear_greed<35?-1:.5 },
+      { k:'high_yield_spread', lbl:'HY SPR.', v:fv(d.high_yield_spread,2)+'%', ref:'< 4.5 normal',    ip:ip('hy',d.high_yield_spread), raw:d.high_yield_spread>4.5?-.5:.5 },
+    ],
+    ctx: d => `DXY ${fv(d.dxy,1)} · PRIME SPR ${fv(d.ted_spread,3)}% · VIX ${fv(d.vix,1)}`,
+    rsn: (sig,d) => `DXY ${fv(d.dxy,1)} ${d.dxy<101?'— muy favorable EUR ✓':d.dxy<104?'— neutro':' — dólar fuerte presiona EUR ⚠'}. VIX ${fv(d.vix,1)} ${d.vix>25?'— pánico = fuga a USD ⚠':''}.` + (sig==='g' ? ' Largos EUR/USD favorables.' : sig==='r' ? ' Dólar dominante — cortos EUR.' : ' Sin dirección clara.'),
+  },
+  btc: {
+    // NOTA DE CALIBRACIÓN: a diferencia de sp/wti/gold/eurusd (correlaciones macro bien
+    // establecidas), la correlación de BTC con DXY/VIX/F&G es más inestable y ha cambiado
+    // de régimen varias veces históricamente (a veces se comporta como "oro digital" /
+    // refugio, a veces como activo de riesgo puro correlacionado con Nasdaq). Esta lectura
+    // usa el marco de "activo de riesgo" (el más común en 2024-2026), pero trátala con más
+    // escepticismo que las de sp/gold — no está validada con backtests como sí lo está tu
+    // metodología en patron.py.
+    label:'Bitcoin', short:'BTC', emoji:'₿', col:'#f7931a', wKey:null,
+    inds: d => [
+      { k:'vix',               lbl:'VIX',     v:fv(d.vix,1),                    ref:'< 20 = risk-on', ip:'VIX bajo favorece activos de riesgo como BTC', raw:d.vix<18?.7:d.vix<25?0:-.7 },
+      { k:'dxy',               lbl:'DXY',     v:fv(d.dxy,1),                    ref:'DXY↓ = BTC↑ (no siempre)', ip:ip('dxy',d.dxy), inv:1 },
+      { k:'fear_greed',        lbl:'F&G',     v:''+d.fear_greed,               ref:'<25 o >75 = extremos', ip:'Miedo extremo = posible suelo · Codicia extrema = posible techo', raw:d.fear_greed<25?.5:d.fear_greed>75?-.4:.2 },
+      { k:'high_yield_spread', lbl:'HY SPR.', v:fv(d.high_yield_spread,2)+'%', ref:'< 4% risk-on',   ip:ip('hy',d.high_yield_spread), raw:d.high_yield_spread<4?.5:-.5 },
+      { k:'two_ten_spread',    lbl:'2s10s',   v:fv(d.two_ten_spread,2)+'%',    ref:'> 0 liquidez sana', ip:ip('2s',d.two_ten_spread) },
+    ],
+    ctx: d => `VIX ${fv(d.vix,1)} · DXY ${fv(d.dxy,1)} · F&G ${d.fear_greed} — lectura de "activo de riesgo", no validada con backtest`,
+    rsn: (sig,d) => `VIX ${fv(d.vix,1)} ${d.vix<20?'— apetito de riesgo ✓':'— cautela'}. F&G ${d.fear_greed} ${d.fear_greed<25?'(miedo extremo — posible zona de compra contrarian)':d.fear_greed>75?'(codicia extrema — precaución)':'(rango normal)'}.` + (sig==='g' ? ' Contexto de riesgo favorable — no sustituye tu propio análisis de BTC.' : sig==='r' ? ' Contexto de riesgo adverso.' : ' Señales mixtas.') + ' ⚠ Correlación BTC-macro es inestable — usa con más cautela que sp/gold.',
+  },
+};
+
+// ══════════════════════════════════════════════════════
+//  SCORING v2 — NORMALIZADO AL RANGO [-1, +1]
+//
+//  Cada función sk(k,v) devuelve un valor en [-1, +1]:
+//    +1  = máximo alcista para ese indicador
+//    -1  = máximo bajista
+//     0  = neutro
+//
+//  calcScore() suma los scores ponderados y devuelve:
+//    { s, mx, pct, breakdown }
+//    - s   = suma de (raw × peso)
+//    - mx  = suma de pesos (máximo teórico si todos = +1)
+//    - pct = (s / mx + 1) / 2  → normalizado a [0, 1] para gauge
+//    - breakdown = array de {lbl, raw, w, contrib} para el desglose visual
+//
+//  getSig() usa el ratio s/mx:
+//    ≥ +0.30  → LARGOS  (antes era ≥ 0.35)
+//    ≤ -0.30  → CORTOS
+//    else     → NEUTRO
+// ══════════════════════════════════════════════════════
+function sk(k, v) {
+  if (v == null) return 0;
+  const rules = {
+    // VIX: <15 complacencia (alcista equities), >30 pánico (bajista equities)
+    vix: v => v < 12 ? 0.9 : v < 15 ? 0.8 : v < 18 ? 0.6 : v < 20 ? 0.3 : v < 23 ? -0.1 : v < 25 ? -0.4 : v < 30 ? -0.7 : -1.0,
+
+    // HY Spread: crédito sano = alcista, spreads amplios = bajista
+    high_yield_spread: v => v < 3.0 ? 1.0 : v < 3.5 ? 0.7 : v < 4.0 ? 0.4 : v < 4.5 ? 0.1 : v < 5.0 ? -0.3 : v < 5.5 ? -0.6 : v < 6.5 ? -0.8 : -1.0,
+
+    // P/C Ratio: zona óptima 0.7-0.9
+    // < 0.6 = euforia (contrarian bajista)
+    // 0.7-0.9 = optimismo sano (alcista moderado)
+    // > 1.1 = pesimismo excesivo (contrarian alcista = suelo)
+    // FIX: antes > 1.2 daba -1 lo cual era incorrecto (P/C alto = suelo posible)
+    put_call_ratio: v => v < 0.5 ? -1.0 : v < 0.6 ? -0.6 : v < 0.7 ? -0.2 : v < 0.85 ? 0.8 : v < 0.95 ? 1.0 : v < 1.05 ? 0.7 : v < 1.15 ? 0.3 : v < 1.3 ? -0.2 : -0.5,
+    // Nota: P/C > 1.3 empieza a ser señal de capitulación — neutral a ligeramente negativo en el corto plazo
+
+    // Fear & Greed: zona media (40-60) = mejor para largos en tendencia
+    // FIX: antes fear_greed>65 → solo 0.5 (codicia = precaución), ahora diferenciamos
+    fear_greed: v => v < 10 ? -0.8 : v < 20 ? -0.5 : v < 30 ? -0.2 : v < 40 ? 0.3 : v < 55 ? 0.8 : v < 65 ? 1.0 : v < 75 ? 0.5 : v < 85 ? 0.0 : -0.3,
+    // Nota: codicia extrema (>75) = precaución contrarian, no señal alcista plena
+
+    // 2s10s spread: curva normal = expansión
+    two_ten_spread: v => v > 1.0 ? 1.0 : v > 0.5 ? 0.7 : v > 0.2 ? 0.4 : v > 0.0 ? 0.1 : v > -0.1 ? -0.2 : v > -0.25 ? -0.5 : v > -0.5 ? -0.8 : -1.0,
+
+    // DXY: dólar débil = alcista para equities/commodities/EUR
+    dxy: v => v < 99 ? 1.0 : v < 101 ? 0.7 : v < 103 ? 0.4 : v < 104 ? 0.1 : v < 105 ? -0.2 : v < 107 ? -0.6 : v < 109 ? -0.9 : -1.0,
+
+    // CRB: índice de commodities
+    crb: v => v > 300 ? 1.0 : v > 290 ? 0.7 : v > 275 ? 0.4 : v > 260 ? 0.0 : v > 245 ? -0.5 : -1.0,
+
+    // EIA inventarios: caída = bullish petróleo
+    eia_inventories: v => v < -5 ? 1.0 : v < -3 ? 0.7 : v < -1 ? 0.4 : v < 0 ? 0.1 : v < 2 ? -0.3 : v < 4 ? -0.6 : -1.0,
+
+    // Prime Spread proxy (reemplaza TED Spread discontinuado 2023): estrés bancario
+    ted_spread: v => v < 0.10 ? 1.0 : v < 0.15 ? 0.7 : v < 0.20 ? 0.4 : v < 0.25 ? 0.1 : v < 0.35 ? -0.3 : v < 0.50 ? -0.7 : -1.0,
+
+    // WTI precio directo (para tab WTI — precio moderado = sano)
+    wti: v => v < 55 ? -0.5 : v < 65 ? 0.2 : v < 75 ? 0.6 : v < 85 ? 0.3 : v < 95 ? -0.3 : -0.8,
+  };
+  return rules[k] ? rules[k](v) : 0;
+}
+
+function calcScore(ak, d, scfg) {
+  const a = AC[ak];
+  const ws = a.wKey && scfg ? scfg[a.wKey] || {} : {};
+  let s = 0, mx = 0;
+  const breakdown = [];
+  a.inds(d).forEach(ind => {
+    const w = ws[ind.k] !== undefined ? ws[ind.k] : 1.0;
+    const raw = ind.raw !== undefined ? ind.raw : ind.inv ? -sk(ind.k, d[ind.k]) : sk(ind.k, d[ind.k]);
+    const contrib = raw * w;
+    s  += contrib;
+    mx += w;
+    breakdown.push({ lbl: ind.lbl, raw, w, contrib });
+  });
+  // pct: 0 = completamente bajista, 0.5 = neutro, 1 = completamente alcista
+  const pct = mx > 0 ? (s / mx + 1) / 2 : 0.5;
+  return { s, mx, pct, breakdown };
+}
+
+function getSig(s, mx) {
+  if (!mx) return { t:'NO OPERAR', sym:'◆', c:'y' };
+  const r = s / mx;
+  if (r >= 0.30)  return { t:'LARGOS FAVORABLES',   sym:'▲', c:'g' };
+  if (r <= -0.30) return { t:'CORTOS FAVORABLES',   sym:'▼', c:'r' };
+  return { t:'NO OPERAR · ESPERAR', sym:'◆', c:'y' };
+}
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+function tc(c) { return c==='g' ? '#00d48a' : c==='r' ? '#ff4f5e' : '#f0b429'; }
+function sc2c(raw) { return raw >= 0.25 ? 'g' : raw <= -0.25 ? 'r' : 'y'; }
+function fv(v, d) { return v != null ? +v.toFixed(d) : '--'; }
+
+function ip(k, v) {
+  if (v == null) return '—';
+  const m = {
+    vix:  v => v<12?'Complacencia extrema':v<15?'Complacencia — vol muy baja':v<20?'Condiciones normales':v<25?'Precaución — volatilidad elevada':'Pánico — estrés sistémico',
+    dxy:  v => v<99?'Dólar muy débil — riesgo muy favorecido':v<101?'Dólar débil — riesgo favorecido':v<103?'Dólar neutro':v<105?'Dólar fuerte — presiona SP500 y WTI':v<107?'Dólar muy fuerte — adverso':'Dólar extremo — adverso',
+    hy:   v => v<3.0?'Crédito excelente':v<3.5?'Crédito muy sano':v<4.0?'Crédito normal':v<4.5?'Spreads algo amplios':v<5.0?'Estrés crediticio moderado':'Estrés crediticio severo',
+    pc:   v => v<0.6?'Euforia — señal contrarian bajista':v<0.7?'Optimismo alto':v<0.85?'Optimismo sano — señal alcista':v<0.95?'Zona óptima':v<1.1?'Sesgo bajista leve':v<1.3?'Pesimismo — posible suelo':'Capitulación — contrarian alcista',
+    fg:   v => v<20?'Miedo extremo — señal refugio':v<30?'Miedo alto — cautela':v<40?'Miedo moderado':v<55?'Neutro favorable':v<65?'Codicia moderada — óptimo':v<75?'Codicia — precaución':v<85?'Codicia alta — señal contrarian':'Codicia extrema — precaución máxima',
+    '2s': v => v>1.0?'Curva muy sana — expansión fuerte':v>0.5?'Curva sana — expansión':v>0.2?'Curva normalizada':v>0?'Curva plana — cautela':v>-0.25?'Inversión leve — alerta':v>-0.5?'Inversión moderada — recesión posible':'Inversión severa — señal recesiva fuerte',
+    crb:  v => v>295?'Commodities muy fuertes':v>275?'Commodities sanos':v>260?'Commodities neutros':'Commodities débiles',
+    eia:  v => v<-5?'Caída fuerte — muy alcista WTI':v<-3?'Caída significativa — alcista WTI':v<0?'Caída leve — alcista WTI':v<2?'Aumento moderado — presiona WTI':v<4?'Aumento significativo':'Aumento fuerte — bajista WTI',
+    ted:  v => v<0.10?'Prime spread normal — sistema estable':v<0.15?'Prime spread leve — estable':v<0.20?'Estrés bancario muy leve':v<0.25?'Estrés leve':v<0.35?'Estrés moderado — vigilar':'Tensión bancaria significativa (proxy DPRIME)',
+  };
+  return m[k] ? m[k](v) : '—';
+}
+
+// ══════════════════════════════════════════════════════
+//  CORRELACIONES v2 — más granulares, umbral dinámico
+// ══════════════════════════════════════════════════════
+function buildCorrelations(d) {
+  const corrs = [];
+  const { vix, fear_greed:fg, dxy, two_ten_spread:sp2, high_yield_spread:hy, ted_spread:ted, wti, gold } = d;
+
+  // ── VIX ──
+  if (vix > 30) {
+    corrs.push({ cls:'r', ic:'⚡', cond:`VIX ${fv(vix,1)} — Pánico sistémico`, impl:`GOLD largo ✓ · SP500/NQ cortos ✓ · EUR/USD bajo presión`, str: vix>40?'EXTREMA':vix>35?'FUERTE':'MODERADA' });
+  } else if (vix > 22) {
+    corrs.push({ cls:'y', ic:'⚠️', cond:`VIX ${fv(vix,1)} — Volatilidad elevada`, impl:`Cautela en índices · Gold como cobertura parcial`, str:'LEVE' });
+  } else if (vix < 13) {
+    corrs.push({ cls:'y', ic:'😌', cond:`VIX ${fv(vix,1)} — Complacencia extrema`, impl:`Riesgo de corrección · Potencial venta de volatilidad`, str:'LEVE' });
+  } else if (vix < 17) {
+    corrs.push({ cls:'g', ic:'✅', cond:`VIX ${fv(vix,1)} — Ambiente tranquilo`, impl:`SP500/NQ largos favorecidos · Risk-on activo`, str:'LEVE' });
+  }
+
+  // ── FEAR & GREED ──
+  if (fg < 20) {
+    corrs.push({ cls:'r', ic:'😨', cond:`F&G ${fg} — Miedo extremo`, impl:`GOLD refugio ✓ · Posible suelo táctico en índices`, str: fg<10?'EXTREMA':'FUERTE' });
+  } else if (fg < 30) {
+    corrs.push({ cls:'y', ic:'😟', cond:`F&G ${fg} — Miedo alto`, impl:`Cautela · Gold favorecido · Índices bajo presión`, str:'MODERADA' });
+  } else if (fg > 80) {
+    corrs.push({ cls:'r', ic:'🤑', cond:`F&G ${fg} — Codicia extrema`, impl:`Señal contrarian · Riesgo de corrección · Reducir exposición`, str:'MODERADA' });
+  } else if (fg > 65) {
+    corrs.push({ cls:'y', ic:'😏', cond:`F&G ${fg} — Codicia moderada`, impl:`Momentum alcista pero precaución contrarian`, str:'LEVE' });
+  }
+
+  // ── DXY ──
+  if (dxy < 99) {
+    corrs.push({ cls:'g', ic:'💵', cond:`DXY ${fv(dxy,1)} — Dólar muy débil`, impl:`GOLD largo ✓ · WTI largo ✓ · EUR/USD largo ✓ · Riesgo favorecido`, str: dxy<97?'FUERTE':'MODERADA' });
+  } else if (dxy > 108) {
+    corrs.push({ cls:'r', ic:'💵', cond:`DXY ${fv(dxy,1)} — Dólar muy fuerte`, impl:`GOLD presionado · WTI presionado · EUR/USD corto ✓`, str:'FUERTE' });
+  } else if (dxy > 105) {
+    corrs.push({ cls:'y', ic:'💵', cond:`DXY ${fv(dxy,1)} — Dólar fuerte`, impl:`Presión moderada en commodities y EUR/USD`, str:'LEVE' });
+  } else if (dxy < 101) {
+    corrs.push({ cls:'g', ic:'💵', cond:`DXY ${fv(dxy,1)} — Dólar débil`, impl:`Commodities y EUR favorecidos`, str:'LEVE' });
+  }
+
+  // ── CURVA 2s10s ──
+  if (sp2 < -0.5) {
+    corrs.push({ cls:'r', ic:'📉', cond:`2s10s ${fv(sp2,2)}% — Inversión severa`, impl:`Señal recesiva fuerte · GOLD ✓ · Cautela máxima índices`, str: sp2<-1?'EXTREMA':'FUERTE' });
+  } else if (sp2 < 0) {
+    corrs.push({ cls:'y', ic:'📉', cond:`2s10s ${fv(sp2,2)}% — Curva invertida`, impl:`Señal recesiva · GOLD favorecido · Cautela en índices`, str: sp2<-0.25?'MODERADA':'LEVE' });
+  } else if (sp2 > 0.8) {
+    corrs.push({ cls:'g', ic:'📈', cond:`2s10s ${fv(sp2,2)}% — Curva muy sana`, impl:`Expansión económica · SP500/NQ viento de cola fuerte`, str:'MODERADA' });
+  } else if (sp2 > 0.3) {
+    corrs.push({ cls:'g', ic:'📈', cond:`2s10s ${fv(sp2,2)}% — Curva sana`, impl:`Expansión económica · SP500/NQ ligeramente favorecidos`, str:'LEVE' });
+  }
+
+  // ── HY SPREAD ──
+  if (hy > 6.0) {
+    corrs.push({ cls:'r', ic:'🏦', cond:`HY Spread ${fv(hy,2)}% — Estrés crédito severo`, impl:`Mercado crédito bajo fuerte presión · SP500 bajista · GOLD ✓`, str:'FUERTE' });
+  } else if (hy > 5.0) {
+    corrs.push({ cls:'y', ic:'🏦', cond:`HY Spread ${fv(hy,2)}% — Spreads amplios`, impl:`Crédito deteriorado · Cautela en índices`, str:'MODERADA' });
+  } else if (hy < 3.0) {
+    corrs.push({ cls:'g', ic:'🏦', cond:`HY Spread ${fv(hy,2)}% — Crédito muy sano`, impl:`Crédito excelente · Viento de cola para índices`, str:'LEVE' });
+  }
+
+  // ── PRIME SPREAD (proxy bancario) ──
+  if (ted > 0.4) {
+    corrs.push({ cls:'r', ic:'🏛️', cond:`PRIME SPR ${fv(ted,3)}% — Tensión bancaria`, impl:`Estrés interbancario · GOLD refugio ✓ · Cautela`, str: ted>0.6?'FUERTE':'MODERADA' });
+  }
+
+  // ── COMBINACIONES DE SEÑAL (cross-asset) ──
+  // Risk-off triple (VIX alto + F&G bajo + HY alto)
+  if (vix > 25 && fg < 30 && hy > 5.0) {
+    corrs.push({ cls:'r', ic:'🚨', cond:`Triple señal risk-off`, impl:`VIX, F&G y HY simultáneamente en zona de estrés — evitar largos`, str:'FUERTE' });
+  }
+  // Risk-on triple (VIX bajo + F&G medio + curva ok)
+  if (vix < 18 && fg > 40 && fg < 70 && sp2 > 0) {
+    corrs.push({ cls:'g', ic:'🟢', cond:`Entorno risk-on confirmado`, impl:`VIX controlado, sentimiento equilibrado, curva sana`, str:'MODERADA' });
+  }
+  // Gold squeeze (DXY fuerte + VIX bajo = presión doble sobre gold)
+  if (dxy > 106 && vix < 20) {
+    corrs.push({ cls:'r', ic:'🥇', cond:`Presión doble sobre Gold`, impl:`DXY fuerte + VIX bajo = sin catalizador refugio ni debilidad USD`, str:'LEVE' });
+  }
+
+  if (!corrs.length) {
+    corrs.push({ cls:'g', ic:'✅', cond:'Sin correlaciones de alerta activas', impl:'Mercado en zona de equilibrio — señales neutras generales', str:'—' });
+  }
+  return corrs.slice(0, 7); // máx 7 para no saturar
+}
+
+// ══════════════════════════════════════════════════════
+//  SCORE BREAKDOWN visual
+// ══════════════════════════════════════════════════════
+function renderBreakdown(breakdown, scfg, wKey) {
+  if (!breakdown || !breakdown.length) return '';
+  return breakdown.map(b => {
+    const pct = Math.abs(b.raw) * 50; // 0-50%
+    const bar = b.raw >= 0 ? `<div class="sc-bk-bar" style="width:${pct}%;background:var(--green);margin-left:50%"></div>` :
+                              `<div class="sc-bk-bar" style="width:${pct}%;background:var(--red);margin-left:${50-pct}%"></div>`;
+    const col = sc2c(b.raw);
+    return `<div class="sc-bk-row">
+      <div class="sc-bk-lbl">${b.lbl} <span style="color:var(--t3);font-size:7px">×${b.w.toFixed(1)}</span></div>
+      <div class="sc-bk-bar-track" style="position:relative">${bar}</div>
+      <div class="sc-bk-val" style="color:${tc(col)}">${b.raw >= 0 ? '+' : ''}${b.raw.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  FEAR & GREED ARC
+// ══════════════════════════════════════════════════════
+function updateFGArc(val) {
+  const v = Math.max(0, Math.min(100, val));
+  // arco de 180° = longitud ~157px (r=50, semi-círculo)
+  const arcLen = 157;
+  const offset = arcLen - (v / 100) * arcLen;
+  const fill = document.getElementById('fgArcFill');
+  if (fill) {
+    fill.style.strokeDashoffset = offset;
+    fill.style.stroke = v > 65 ? '#f0b429' : v > 50 ? '#00d48a' : v > 35 ? '#7a8599' : v > 20 ? '#f0b429' : '#ff4f5e';
+  }
+  // aguja: -90° (izq) a +90° (der) = de 0 a 100
+  const deg = -90 + (v / 100) * 180;
+  const needle = document.getElementById('fgNeedle');
+  if (needle) needle.style.transform = `rotate(${deg}deg)`;
+}
+
+// ══════════════════════════════════════════════════════
+//  UPDATE UI
+// ══════════════════════════════════════════════════════
+function updateUI() {
+  const d = MKT;
+  if (!d || d.vix == null) return;
+  const scfg = SC[SESS];
+  const a = AC[CUR];
+  const { s, mx, pct, breakdown } = calcScore(CUR, d, scfg);
+  const sig = getSig(s, mx);
+  const hex = tc(sig.c);
+
+  // ── Score card ──
+  document.getElementById('scAsset').textContent = a.emoji + ' ' + a.label;
+  const sn = document.getElementById('scNum');
+  sn.textContent = (s > 0 ? '+' : '') + s.toFixed(2);
+  sn.style.color = hex;
+  document.getElementById('scMax').textContent = '/ ±' + mx.toFixed(1) + ' rango';
+
+  // Gauge
+  const gaugePct = Math.round(pct * 100);
+  const gaugeEl = document.getElementById('scoreGaugeFill');
+  if (gaugeEl) {
+    gaugeEl.style.width = gaugePct + '%';
+    gaugeEl.style.background = sig.c === 'g' ? 'var(--green)' : sig.c === 'r' ? 'var(--red)' : 'var(--yel)';
+  }
+
+  const sp = document.getElementById('sigPill');
+  sp.textContent = sig.sym + ' ' + sig.t;
+  sp.className = 'sig-pill ' + sig.c;
+
+  // Breakdown
+  document.getElementById('scBreakdown').innerHTML = renderBreakdown(breakdown, scfg, a.wKey);
+
+  document.getElementById('scCtx').textContent = a.ctx(d);
+  document.getElementById('scRsn').textContent = a.rsn(sig.c, d);
+
+  // ── Correlaciones ──
+  const corrs = buildCorrelations(d);
+  const alertCount = corrs.filter(c => c.cls === 'r').length;
+  document.getElementById('corrBadge').textContent = alertCount + (alertCount === 1 ? ' alerta' : ' alertas');
+  document.getElementById('corrList').innerHTML = corrs.map(c => `
+    <div class="corr-row ${c.cls}">
+      <div class="corr-ic">${c.ic}</div>
+      <div class="corr-body">
+        <div class="corr-cond" style="color:${c.cls==='r'?'var(--red)':c.cls==='g'?'var(--green)':c.cls==='b'?'var(--blue)':'var(--yel)'}">${c.cond}</div>
+        <div class="corr-impl">${c.impl}</div>
+      </div>
+      <div class="corr-str">${c.str}</div>
+    </div>`).join('');
+
+  // ── Indicadores grid ──
+  document.getElementById('indAssetLbl').textContent = a.short || a.label;
+  document.getElementById('tblAsset').textContent = a.short || a.label;
+  document.getElementById('indBadge').textContent = a.inds(d).length + ' indicadores';
+  const ws = a.wKey && scfg ? scfg[a.wKey] || {} : {};
+  const inds = a.inds(d);
+  document.getElementById('indGrid').innerHTML = inds.map(ind => {
+    const w = ws[ind.k] !== undefined ? ws[ind.k] : 1.0;
+    const raw = ind.raw !== undefined ? ind.raw : ind.inv ? -sk(ind.k, d[ind.k]) : sk(ind.k, d[ind.k]);
+    const cc = sc2c(raw), hx = tc(cc);
+    const sigTxt = cc==='g' ? '▲ LARGOS' : cc==='r' ? '▼ CORTOS' : '◆ NEUTRO';
+    const wLabel = w !== 1.0 ? `<div class="ind-weight">Peso sesión: ×${w.toFixed(1)}</div>` : '';
+    return `<div class="ind-card">
+      <div class="ind-lbl">${ind.lbl}</div>
+      <div class="ind-val" style="color:${hx}">${ind.v || '--'}</div>
+      <div class="ind-sig ${cc}">${sigTxt}</div>
+      <div class="ind-desc">${ind.ip || '—'}</div>
+      <div class="ind-ref">${ind.ref || ''}</div>
+      ${wLabel}
+    </div>`;
+  }).join('');
+
+  // ── Fear & Greed ──
+  const fg = Math.max(0, Math.min(100, d.fear_greed || 50));
+  const fgHex = fg > 65 ? '#f0b429' : fg > 50 ? '#00d48a' : fg > 35 ? '#7a8599' : fg > 20 ? '#f0b429' : '#ff4f5e';
+  const fgEl = document.getElementById('fgNum');
+  fgEl.textContent = fg; fgEl.style.color = fgHex;
+  const fgLblTxt = fg > 80 ? 'Codicia extrema' : fg > 65 ? 'Codicia' : fg > 55 ? 'Codicia moderada' : fg > 45 ? 'Neutro' : fg > 35 ? 'Neutro / leve miedo' : fg > 20 ? 'Miedo' : 'Miedo extremo';
+  document.getElementById('fgLbl').textContent = fgLblTxt;
+  document.getElementById('fgLbl').style.color = fgHex;
+  const fgSig = document.getElementById('fgSignal');
+  if (fgSig) fgSig.textContent = fg < 25 ? '→ Refugios favorecidos (GOLD, USD)' : fg > 75 ? '→ Precaución contrarian — reducir exposición' : fg > 60 ? '→ Momentum alcista — vigilar sobreextensión' : '→ Sin correlación extrema activa';
+  updateFGArc(fg);
+
+  // ── Tasas ──
+  const y10El = document.getElementById('y10Val');
+  const y2El  = document.getElementById('y2Val');
+  const spEl  = document.getElementById('spreadVal');
+  const spLbl = document.getElementById('spreadLbl');
+  const spRow = document.getElementById('spreadRow');
+  const hyEl  = document.getElementById('hyVal');
+  const hyLbl = document.getElementById('hyLbl');
+  if (y10El) y10El.textContent = fv(d.y10, 2);
+  if (y2El)  y2El.textContent  = fv(d.y2, 2);
+  if (hyEl)  hyEl.textContent  = fv(d.high_yield_spread, 2);
+  if (hyLbl) hyLbl.textContent = d.high_yield_spread < 3.5 ? '✓ Crédito sano' : d.high_yield_spread < 4.5 ? '◆ Crédito normal' : d.high_yield_spread < 5.5 ? '⚠ Spreads amplios' : '⛔ Estrés crediticio';
+  if (spEl && d.two_ten_spread != null) {
+    spEl.textContent = (d.two_ten_spread > 0 ? '+' : '') + fv(d.two_ten_spread, 2) + '%';
+    spEl.style.color = d.two_ten_spread > 0 ? 'var(--green)' : d.two_ten_spread > -.25 ? 'var(--yel)' : 'var(--red)';
+    if (spLbl) spLbl.textContent = d.two_ten_spread > 0.5 ? 'Curva normal — expansión' : d.two_ten_spread > 0 ? 'Curva plana — cautela' : d.two_ten_spread > -.25 ? 'Inversión leve — alerta' : 'Inversión severa — señal recesiva';
+    if (spRow) spRow.style.background = d.two_ten_spread > 0 ? 'var(--green2)' : d.two_ten_spread > -.25 ? 'var(--yel2)' : 'var(--red2)';
+  }
+
+  // ── Chart valores (drawCharts se llama desde doFetch, no aquí) ──
+  drawCharts();
+
+  // ── Asset tabs ──
+  Object.keys(AC).forEach(ak => {
+    const { s: as, mx: am, pct: ap } = calcScore(ak, d, scfg);
+    const sig2 = getSig(as, am);
+    const hx2 = tc(sig2.c);
+    const scEl = document.getElementById('sc-' + ak);
+    const sgEl = document.getElementById('sg-' + ak);
+    if (scEl) { scEl.textContent = (as > 0 ? '+' : '') + as.toFixed(1); scEl.style.color = hx2; }
+    if (sgEl) { sgEl.textContent = sig2.sym + ' ' + (sig2.c==='g' ? 'LARGOS' : sig2.c==='r' ? 'CORTOS' : 'NEUTRO'); sgEl.style.color = hx2; }
+  });
+  // Precios en tabs
+  const pxMap = { sp:'ES $'+Math.round(d.sp500_futures||0), wti:'CL $'+fv(d.wti,1), gold:'GC $'+Math.round(d.gold||0), ndx:'NQ $'+Math.round(d.nq_futures||0), eurusd:'FX '+fv(d.eurusd,4), btc:'BTC $'+Math.round(d.btc||0) };
+  Object.entries(pxMap).forEach(([ak, txt]) => { const el = document.getElementById('px-'+ak); if (el) el.textContent = txt; });
+
+  // ── Tabla ──
+  document.getElementById('ntBody').innerHTML = inds.map(ind => {
+    const w = ws[ind.k] !== undefined ? ws[ind.k] : 1.0;
+    const raw = ind.raw !== undefined ? ind.raw : ind.inv ? -sk(ind.k, d[ind.k]) : sk(ind.k, d[ind.k]);
+    const cc = sc2c(raw), hx2 = tc(cc);
+    const sigT = cc==='g' ? '▲ Largos' : cc==='r' ? '▼ Cortos' : '◆ Neutro';
+    return `<tr>
+      <td style="font-weight:600;font-size:10px;color:${hx2}">${ind.lbl}</td>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:700;color:${hx2}">${ind.v || '--'}</td>
+      <td style="font-family:var(--mono);font-size:8px;color:var(--t3)">${ind.ref || '—'}</td>
+      <td style="font-family:var(--mono);font-size:9px;color:var(--cyan)">×${w.toFixed(1)}</td>
+      <td style="font-size:9px;font-weight:700;color:${hx2}">${sigT}</td>
+      <td class="td-i" style="font-size:9px;color:var(--t2)">${ind.ip || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  CLOCK & SESSION
+// ══════════════════════════════════════════════════════
+let lastSK = null;
+function sessFromH(h) {
+  if (h >= 4   && h < 9.5)  return { k:'premarket', l:'🌅 PRE-MARKET' };
+  if (h >= 9.5 && h < 16)   return { k:'nyse',       l:'🏦 NYSE ABIERTA' };
+  if (h >= 16  && h < 20)   return { k:'asia',        l:'🌆 POST-MARKET' };
+  return { k:'asia', l:'🌙 CERRADO / ASIA' };
+}
+function tick() {
+  const now = new Date();
+  const ny  = new Date(now.toLocaleString('en-US', { timeZone:'America/New_York' }));
+  const mx2 = new Date(now.toLocaleString('en-US', { timeZone:'America/Mexico_City' }));
+  const fmt  = t => `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+  const fmtS = t => `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('clkNY').textContent = fmt(ny);
+  document.getElementById('clkMX').textContent = fmtS(mx2);
+  const nyH = ny.getHours() + ny.getMinutes() / 60;
+  const sk2 = sessFromH(nyH);
+  document.getElementById('clkSess').textContent = sk2.l + ' · ET';
+  if (sk2.k !== lastSK && !window._soOverride) {
+    lastSK = sk2.k; SESS = sk2.k;
+    document.querySelectorAll('.stab').forEach(t => t.classList.remove('on'));
+    const ti = { premarket:0, nyse:1, asia:2 };
+    const tabs = document.querySelectorAll('.stab');
+    if (tabs[ti[sk2.k]]) tabs[ti[sk2.k]].classList.add('on');
+    updateSBar();
+    if (Object.keys(MKT).length) updateUI();
+  }
+}
+function updateSBar() {
+  const cfg = SC[SESS];
+  document.getElementById('sbarTxt').textContent = '⚡ ' + cfg.label + ' — ' + cfg.ctx;
+  document.getElementById('sbarTxt').style.color  = cfg.color;
+  document.getElementById('sbarDot').style.background  = cfg.color;
+  document.getElementById('sbarDot').style.boxShadow   = '0 0 5px ' + cfg.color;
+}
+setInterval(tick, 1000); tick();
+
+// ══════════════════════════════════════════════════════
+//  CONTROLS
+// ══════════════════════════════════════════════════════
+function setAsset(a, el) {
+  CUR = a;
+  document.querySelectorAll('.atab').forEach(b => { b.className = 'atab'; });
+  if (el) el.classList.add('on-' + a);
+  if (Object.keys(MKT).length) updateUI();
+}
+function setSess(s, el) {
+  SESS = s;
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('on'));
+  if (el) el.classList.add('on');
+  updateSBar();
+  if (Object.keys(MKT).length) updateUI();
+  clearTimeout(window._soT);
+  window._soOverride = true;
+  window._soT = setTimeout(() => { window._soOverride = false; }, 60000);
+}
+
+// ══════════════════════════════════════════════════════
+//  DATA QUALITY BADGE
+// ══════════════════════════════════════════════════════
+function renderDataQuality(yfOk, fredOk, fgOk) {
+  const bar = document.getElementById('dataQualityBar');
+  if (!bar) return;
+  bar.innerHTML = `
+    <span class="dq-badge ${yfOk?'dq-ok':'dq-err'}">${yfOk?'✓':'✗'} YF</span>
+    <span class="dq-badge ${fredOk>=3?'dq-ok':fredOk>=1?'dq-warn':'dq-err'}">${fredOk>=3?'✓':fredOk>=1?'~':'✗'} FRED ${fredOk}/5</span>
+    <span class="dq-badge ${fgOk?'dq-ok':'dq-warn'}">${fgOk?'✓':'~'} F&G</span>
+  `;
+}
+
+// ══════════════════════════════════════════════════════
+//  FETCH — estrategia robusta para Safari y Chrome
+//  Problema conocido: Yahoo Finance bloquea fetch directo por CORS
+//  Solución: intentar proxies en secuencias, con headers correctos
+// ══════════════════════════════════════════════════════
+// ── FRED API KEY ──────────────────────────────────────────────────────────────
+// Obtén tu key gratuita en: https://fred.stlouisfed.org/docs/api/api_key.html
+// Pega aquí tu key de 32 caracteres. Sin key válida, FRED devuelve 403 y el
+// dashboard opera solo con datos Yahoo Finance (todos los indicadores FRED
+// mostrarán sus valores de respaldo).
+const FRED_KEY = 'c70342ffdf1e233d00a6fd93f0ab4e7c'; // hardcoded — app personal
+
+// La estrategia de fetch (directo con headers → proxies en paralelo por grupos)
+// que este archivo tenía aquí AHORA VIVE en os-core.js — era la mejor de las 3
+// versiones que existían en el sistema (la única con racing paralelo y headers
+// de navegador), así que se usó como base para el núcleo compartido, y este
+// archivo pasa a usar esa versión en vez de mantener su propia copia local.
+const fetchWithProxy = (url) => window.OSFetch.fetchWithProxy(url);
+
+async function yfQuote(sym, altSyms = []) {
+  // Construye lista de URLs para sym + símbolos alternativos (altSyms).
+  // Cada símbolo se intenta con query1 range=30d, query2 range=30d, query1 range=1mo.
+  // Útil para futuros (CL=F, GC=F) que a veces fallan en rollover o con ciertos proxies.
+  const mkUrls = s => [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=1d&range=30d&includePrePost=false`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=1d&range=30d&includePrePost=false`,
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?interval=1d&range=1mo&includePrePost=false`,
+  ];
+  const allUrls = [sym, ...altSyms].flatMap(mkUrls);
+
+  let bestPrice = null, bestPrev = null, bestCloses = [];
+
+  for (const u of allUrls) {
+    try {
+      const r = await fetchWithProxy(u);
+      if (!r) continue;
+      const j = await r.json();
+      const meta   = j?.chart?.result?.[0]?.meta;
+      const closes = (j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null && !isNaN(v));
+      if (!meta) continue;
+
+      const price = meta.regularMarketPrice ?? meta.chartPreviousClose ?? closes.at(-1);
+      const prev  = meta.chartPreviousClose ?? meta.previousClose ?? closes.at(-2);
+
+      if (closes.length > bestCloses.length) {
+        bestCloses = closes;
+        bestPrice  = price ?? bestPrice;
+        bestPrev   = prev  ?? bestPrev;
+      } else if (bestPrice == null && price != null) {
+        bestPrice = price;
+        bestPrev  = prev;
+      }
+
+      if (bestPrice != null && bestCloses.length >= 10) break;
+    } catch(e) { continue; }
+  }
+
+  if (bestPrice == null) return null;
+  return { price: bestPrice, prev: bestPrev, closes: bestCloses };
+}
+
+async function fredLatest(id) {
+  if (!FRED_KEY) return null; // sin key configurada — omitir silenciosamente
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${FRED_KEY}&file_type=json&sort_order=desc&limit=5&observation_start=2024-01-01`;
+  try {
+    const r = await fetchWithProxy(url);
+    const j = await r.json();
+    if (j.error_message) return null;
+    const obs = (j.observations || []).filter(o => o.value !== '.');
+    if (!obs.length) return null;
+    return { value: parseFloat(obs[0].value), prev: obs[1] ? parseFloat(obs[1].value) : null, date: obs[0].date };
+  } catch(e) { return null; }
+}
+
+// ── INIT ──
+setTimeout(() => {
+  const ov = document.getElementById('lov');
+  ov.style.opacity = '0';
+  setTimeout(() => ov.style.display = 'none', 500);
+  updateSBar();
+  doFetch();
+  initChartFallbacks();
+}, 1200);
+setInterval(doFetch, 180000);
+
+// ══════════════════════════════════════════════════════
+//  CHART.JS — inicialización
+//  Charts VIX/DXY/Gold usan Chart.js con datos Yahoo Finance
+//  Se dibujan en drawCharts() llamado desde updateUI()
+// ══════════════════════════════════════════════════════
+function initChartFallbacks() {
+  // Chart.js ya está activo por defecto — nada que inicializar aquí
+  // Los charts se dibujan cuando llegan datos en doFetch() → updateUI() → drawCharts()
+}
+
+// ══════════════════════════════════════════════════════
+//  MAIN FETCH
+// ══════════════════════════════════════════════════════
+async function doFetch() {
+  if (isLoading) return;
+  isLoading = true;
+  const btn = document.getElementById('updTxt');
+  btn.innerHTML = '<span class="spin">↻</span> Cargando';
+
+  try {
+    // NOTA v21.1 — '^TWO' (yield 2Y) se retiró de este batch: no es un símbolo real
+    // de Yahoo Finance (a diferencia de ^TNX/^FVX/^TYX/^IRX, que sí existen). Fallaba
+    // siempre en silencio y el spread 2s10s se calculaba contra un 4.05% fijo, sin que
+    // ningún indicador de calidad de datos lo reflejara. Se reemplaza por FRED DGS2
+    // (serie oficial del yield a 2 años del Tesoro de EE.UU.) — ver batch de FRED abajo.
+    //
+    // NOTA v21.2 — Bridge local de cTrader (Pepperstone): para ES/NQ/Gold/EUR/BTC se
+    // intenta primero el precio real de tu bróker (mismo bridge que ya usa Anomaly
+    // Radar). Se corre EN PARALELO con el batch de Yahoo, no lo bloquea — si el bridge
+    // no responde en 1.5s, se usa Yahoo exactamente como antes, sin ningún cambio de
+    // comportamiento.
+    const BRIDGE_URL = 'https://127.0.0.1:5178';
+    async function fetchBridgePrice(sym){
+      try{
+        const ctrl=new AbortController();
+        const t=setTimeout(()=>ctrl.abort(), 1500);
+        const res=await fetch(`${BRIDGE_URL}/precio/${sym}`, {signal:ctrl.signal});
+        clearTimeout(t);
+        if(!res.ok) return null;
+        const d=await res.json();
+        return d.price ?? null;
+      }catch(e){ return null; } // bridge no disponible — caso normal, sin log de error
+    }
+    const bridgePromise = Promise.allSettled([
+      fetchBridgePrice('us500'), fetchBridgePrice('nas100'), fetchBridgePrice('xauusd'),
+      fetchBridgePrice('eurusd'), fetchBridgePrice('btcusd'),
+      fetchBridgePrice('vix'), fetchBridgePrice('usdx'), fetchBridgePrice('spotcrude'),
+    ]);
+
+    const [vixQ,dxyQ,wtiQ,brentQ,esQ,t10Q,goldQ,eurQ,nqQ,btcQ] = await Promise.allSettled([
+      yfQuote('^VIX',    ['CBOE:VIX']),           // VIX index — fallback símbolo CBOE
+      yfQuote('DX-Y.NYB',['DX=F']),               // DXY — fallback contrato futuro
+      yfQuote('CL=F',    ['CL%3DF','USO']),        // WTI — fallback ETF USO si futuro falla
+      yfQuote('BZ=F',    ['BZ%3DF']),              // Brent futuro
+      yfQuote('ES=F',    ['ES%3DF']),              // S&P 500 futuro
+      yfQuote('^TNX',    ['TNX']),                 // 10Y Treasury yield
+      yfQuote('GC=F',    ['GC%3DF','IAU']),        // Gold — fallback ETF IAU si futuro falla
+      yfQuote('EURUSD=X',[]),
+      yfQuote('NQ=F',    ['NQ%3DF']),              // Nasdaq futuro
+      yfQuote('BTC-USD', []),                      // Bitcoin
+    ]);
+    const [hyF, tedF, crbF, eiaF, dgs2F] = await Promise.allSettled([
+      fredLatest('BAMLH0A0HYM2'),  // HY spread — ICE BofA US High Yield OAS
+      fredLatest('DPRIME'),          // Prime Rate proxy (TEDRATE discontinuado en 2023)
+      fredLatest('PPIACO'),          // Producer Price Index (proxy CRB)
+      fredLatest('WCRSTUS1'),        // EIA: inventarios petróleo crudo US
+      fredLatest('DGS2'),            // 2Y Treasury yield — dato real, reemplaza a '^TWO'
+    ]);
+
+    let fearGreed = 50, fgOk = false;
+    try {
+      const fr = await fetchWithProxy('https://api.alternative.me/fng/?limit=1');
+      if (fr && fr.ok) { const fj = await fr.json(); fearGreed = parseInt(fj?.data?.[0]?.value || '50', 10); fgOk = true; }
+    } catch(e) {}
+
+    const get = q => q.status === 'fulfilled' ? q.value : null;
+    const vixD=get(vixQ), dxyD=get(dxyQ), wtiD=get(wtiQ), brentD=get(brentQ),
+          esD=get(esQ),   t10D=get(t10Q),  goldD=get(goldQ),
+          eurD=get(eurQ), nqD=get(nqQ),    btcD=get(btcQ);
+    const getFred = q => q.status === 'fulfilled' ? q.value : null;
+    const hyFred=getFred(hyF), tedFred=getFred(tedF), crbFred=getFred(crbF), eiaFred=getFred(eiaF), dgs2Fred=getFred(dgs2F);
+
+    let vix       = vixD?.price   ?? 20;
+    const vixPrev = vixD?.prev    ?? vix * .97;
+    let dxy       = dxyD?.price   ?? 104;
+    const dxyPrev = dxyD?.prev    ?? dxy * .995;
+    let wti       = wtiD?.price   ?? 72;
+    const wtiPrev = wtiD?.prev    ?? wti * .99;
+    const brent   = brentD?.price ?? wti + 3.5;
+    let sp500f  = esD?.price    ?? 5800;
+    const y10     = t10D?.price != null ? +(t10D.price / 10).toFixed(3) : 4.3;
+    // DGS2 de FRED ya viene en % directo (no ×10 como el crudo de Yahoo para ^TNX/^FVX/^TYX)
+    const y2      = dgs2Fred?.value != null ? +dgs2Fred.value.toFixed(3) : 4.05;
+    let gold    = goldD?.price  ?? 2100;
+    const goldPrev= goldD?.prev   ?? gold * .998;
+    let eurusd  = eurD?.price   ?? 1.08;
+    let nqF     = nqD?.price    ?? 20000;
+    let btc     = btcD?.price   ?? 62000;
+    const btcPrev = btcD?.prev    ?? btc * .99;
+
+    // Aplicar precio real de Pepperstone donde el bridge respondió — sobreescribe
+    // solo el nivel actual (el bridge no da "prev", así que el cambio % sigue
+    // calculándose contra el prev de Yahoo, que no se pierde).
+    const [bUs500, bNas100, bXau, bEur, bBtc, bVix, bDxy, bWti] = (await bridgePromise).map(r => r.status==='fulfilled' ? r.value : null);
+    let bridgeOk = 0;
+    if (bUs500  != null) { sp500f = bUs500;  bridgeOk++; }
+    if (bNas100 != null) { nqF    = bNas100; bridgeOk++; }
+    if (bXau    != null) { gold   = bXau;    bridgeOk++; }
+    if (bEur    != null) { eurusd = bEur;    bridgeOk++; }
+    if (bBtc    != null) { btc    = bBtc;    bridgeOk++; }
+    if (bVix    != null) { vix    = bVix;    bridgeOk++; }
+    if (bDxy    != null) { dxy    = bDxy;    bridgeOk++; }
+    if (bWti    != null) { wti    = bWti;    bridgeOk++; }
+    const spread210 = +(y10 - y2).toFixed(3);
+    const hySpread  = hyFred?.value ?? 4.2;
+    // DPRIME = Prime Rate (~7.5%). TED Spread original medía T-Bill vs LIBOR (0.10–0.50 normal).
+    // Proxy: Prime − 3.0 (diferencial histórico Prime vs T-Bill) → rango similar 0.10–0.60
+    // Si FRED devuelve null (key vacía), usar fallback 0.18 (neutral).
+    const tedSpread = tedFred?.value != null ? +Math.max(0, tedFred.value - 3.0).toFixed(3) : 0.18;
+    // CRB proxy: PPIACO (Producer Price Index) × 1.25 + 5
+    // Nota: PPIACO no es el CRB Index real, pero correlaciona (~0.85) con él.
+    // PPIACO típico ~200-230 → proxy CRB ~255-292. CRB real ronda 250-320.
+    const crbVal    = crbFred?.value != null ? +(crbFred.value * 1.25 + 5).toFixed(1) : 275;
+    let eiaInv = -1.5;
+    if (eiaFred?.value != null && eiaFred?.prev != null) {
+      eiaInv = +((eiaFred.value - eiaFred.prev) / 1000).toFixed(1);
+      eiaInv = Math.max(-8, Math.min(8, eiaInv));
+    }
+
+    // P/C Ratio proxy — estimado desde VIX (sin datos CBOE reales)
+    // Fórmula v16: rango dinámico [0.60, 1.10] continuo sobre todo el VIX
+    //   VIX bajo (12) → P/C bajo (0.75) = optimismo/euforia → sk negativo (contrarian)
+    //   VIX medio (20) → P/C óptimo (0.85) = zona sana → sk positivo
+    //   VIX alto (40) → P/C alto (1.10) = pesimismo → sk contrarian alcista
+    // Esta curva refleja mejor la correlación real VIX-PCR observada históricamente
+    const pcRatio = +(Math.min(1.20, Math.max(0.55, 0.60 + (vix / 40) * 0.55))).toFixed(2);
+
+    const fredOk = [hyFred, tedFred, crbFred, eiaFred, dgs2Fred].filter(Boolean).length;
+    const yfOk   = !!vixD;
+
+    // Si Yahoo falló completamente (sin ningún dato), caer al fallback demo
+    if (!vixD) throw new Error('Sin datos Yahoo — todos los proxies fallaron');
+
+    MKT = {
+      vix, vix_prev:vixPrev, vix_closes:vixD?.closes||[],
+      dxy, dxy_prev:dxyPrev, dxy_closes:dxyD?.closes||[],
+      wti, wti_prev:wtiPrev, brent,
+      gold, gold_prev:goldPrev, gold_closes:goldD?.closes||[],
+      eurusd, nq_futures:nqF, sp500_futures:sp500f, btc, btc_prev:btcPrev,
+      high_yield_spread:hySpread, put_call_ratio:pcRatio,
+      fear_greed:fearGreed, two_ten_spread:spread210,
+      crb:crbVal, eia_inventories:eiaInv, ted_spread:tedSpread,
+      y10, y2, fredOk, yfOk, fgOk, timestamp:new Date().toISOString(),
+    };
+
+    const fredTag = fredOk >= 2 ? ` · HY:${hySpread.toFixed(2)}% · PRIME SPR:${tedSpread.toFixed(3)}%` : '';
+    document.getElementById('sbarTxt').textContent =
+      `🟢 Yahoo Finance + FRED (${fredOk}/5)${bridgeOk?' + Pepperstone ('+bridgeOk+'/8)':''} · VIX:${vix.toFixed(1)} · DXY:${dxy.toFixed(1)} · WTI:$${wti.toFixed(1)} · Gold:$${Math.round(gold)} · ES:${Math.round(sp500f)}${fredTag} — ${new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'})} ET`;
+    document.getElementById('sbarTxt').style.color = 'var(--green)';
+    document.getElementById('srcBadge').textContent = `Yahoo + FRED (${fredOk}/5)${bridgeOk?' + PEP ('+bridgeOk+'/8)':''}`;
+    document.getElementById('updTime').textContent  = new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'}) + ' ET';
+    renderDataQuality(yfOk, fredOk, fgOk);
+    updateUI();
+
+  } catch(e) {
+    console.error(e);
+    MKT = {
+      vix:19.2, vix_prev:17.8, vix_closes:[21.1,20.3,18.9,17.8,18.4,19.0,19.2],
+      dxy:103.8, dxy_prev:103.3, dxy_closes:[102.9,103.1,103.5,104.1,103.9,103.5,103.8],
+      wti:70.5, wti_prev:71.8, brent:74.2,
+      gold:2180, gold_prev:2165, gold_closes:[2150,2160,2155,2170,2175,2165,2180],
+      eurusd:1.0850, nq_futures:19800, sp500_futures:5750, btc:62000, btc_prev:62500,
+      high_yield_spread:4.1, put_call_ratio:0.72, fear_greed:42,
+      two_ten_spread:0.18, crb:271, eia_inventories:-1.8, ted_spread:0.19,
+      y10:4.32, y2:4.50, fredOk:0, yfOk:false, fgOk:false, timestamp:'DEMO',
+    };
+    updateUI();
+    renderDataQuality(false, 0, false);
+    document.getElementById('sbarTxt').textContent = '⚠ Sin conexión — datos DEMO. Revisa tu red o intenta en Chrome/Firefox.';
+    document.getElementById('sbarTxt').style.color = 'var(--yel)';
+    document.getElementById('updTime').textContent = '⚠ DEMO';
+  } finally {
+    btn.textContent = 'Actualizar';
+    isLoading = false;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  CHART.JS — charts VIX / DXY / GOLD
+//  Datos: closes[] de Yahoo Finance (30 días)
+// ══════════════════════════════════════════════════════
+const CJ_INSTANCES = {}; // guardar instancias para destroy() al actualizar
+
+function cjColor(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function buildLabels(n) {
+  // Últimos n días hábiles aproximados (L-V)
+  const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const labels = [];
+  const today = new Date();
+  let d = new Date(today);
+  let count = 0;
+  while (count < n) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) {
+      labels.unshift(days[dow] + ' ' + d.getDate());
+      count++;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  return labels;
+}
+
+function drawCJChart(canvasId, data, hexColor, footId) {
+  if (!data || data.length < 2) return;
+
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+
+  // Destroy previous instance if exists
+  if (CJ_INSTANCES[canvasId]) {
+    CJ_INSTANCES[canvasId].destroy();
+    delete CJ_INSTANCES[canvasId];
+  }
+
+  const dark     = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridCol  = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)';
+  const textCol  = dark ? 'rgba(255,255,255,0.25)'  : 'rgba(0,0,0,0.3)';
+  const labels   = buildLabels(data.length);
+  const mn       = Math.min(...data);
+  const mx       = Math.max(...data);
+  const pad      = (mx - mn) * 0.15 || 0.5;
+
+  CJ_INSTANCES[canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderColor: hexColor,
+        borderWidth: 2,
+        borderDash: [],
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: hexColor,
+        fill: true,
+        backgroundColor: (context) => {
+          const chart = context.chart;
+          const {ctx: c, chartArea} = chart;
+          if (!chartArea) return 'transparent';
+          const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          grad.addColorStop(0, cjColor(hexColor, 0.20));
+          grad.addColorStop(1, cjColor(hexColor, 0.00));
+          return grad;
+        },
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeInOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: dark ? '#1e2230' : '#fff',
+          titleColor: dark ? '#dde3ef' : '#1a202c',
+          bodyColor: hexColor,
+          borderColor: dark ? '#2a3048' : '#dde1eb',
+          borderWidth: 1,
+          padding: 8,
+          displayColors: false,
+          callbacks: {
+            label: ctx => {
+              const v = ctx.raw;
+              return v < 10 ? v.toFixed(2) : v.toFixed(1);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: gridCol, drawBorder: false },
+          ticks: {
+            color: textCol,
+            font: { size: 8, family: "'Space Mono', monospace" },
+            maxTicksLimit: 5,
+            maxRotation: 0,
+          }
+        },
+        y: {
+          position: 'right',
+          min: mn - pad,
+          max: mx + pad,
+          grid: { color: gridCol, drawBorder: false },
+          ticks: {
+            color: textCol,
+            font: { size: 8, family: "'Space Mono', monospace" },
+            maxTicksLimit: 4,
+            callback: v => v < 10 ? v.toFixed(1) : Math.round(v),
+          }
+        }
+      }
+    }
+  });
+
+  // Foot: min / max del período
+  const foot = document.getElementById(footId);
+  if (foot) {
+    const minD = mn.toFixed(mn < 10 ? 2 : 1);
+    const maxD = mx.toFixed(mx < 10 ? 2 : 1);
+    foot.innerHTML = `<span>Mín ${minD}</span><span>${data.length}d</span><span>Máx ${maxD}</span>`;
+  }
+}
+
+function buildCloses(closes, cur, n) {
+  const arr = [...(closes || [])].filter(v => v != null && !isNaN(v));
+  if (cur != null && arr.length) arr[arr.length - 1] = cur;
+  while (arr.length < n) arr.unshift(arr[0] || cur || 0);
+  return arr.slice(-n).map(v => +v.toFixed(3));
+}
+
+function drawCharts() {
+  const d = MKT;
+  if (!d || d.vix == null) return;
+
+  const N = 20; // últimos 20 cierres (~1 mes)
+  requestAnimationFrame(() => {
+    drawCJChart('vixC',  buildCloses(d.vix_closes,  d.vix,  N), '#00d48a', 'vixFoot');
+    drawCJChart('dxyC',  buildCloses(d.dxy_closes,  d.dxy,  N), '#f0b429', 'dxyFoot');
+    drawCJChart('goldC', buildCloses(d.gold_closes, d.gold, N), '#f0b429', 'goldFoot');
+  });
+
+  // Valores numéricos en header de cada chart
+  const chgBadge = (elId, cur, prev, goodUp) => {
+    const el = document.getElementById(elId);
+    if (!el || cur == null || prev == null || prev === 0) return;
+    const pct = (cur - prev) / prev * 100;
+    el.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    el.className = 'chart-chg ' + (pct >= 0 ? (goodUp ? 'up' : 'dn') : (goodUp ? 'dn' : 'up'));
+  };
+  const v = id => document.getElementById(id);
+  if (v('vixVal'))  v('vixVal').textContent  = fv(d.vix, 1);
+  if (v('dxyVal'))  v('dxyVal').textContent  = fv(d.dxy, 1);
+  if (v('goldVal')) v('goldVal').textContent = d.gold ? '$' + Math.round(d.gold) : '--';
+  chgBadge('vixChg',  d.vix,  d.vix_prev,  false);
+  chgBadge('dxyChg',  d.dxy,  d.dxy_prev,  false);
+  chgBadge('goldChg', d.gold, d.gold_prev, true);
+}
+
+window.addEventListener('resize', () => { if (Object.keys(MKT).length) drawCharts(); });
+
+// ══════════════════════════════════════════════════════
+//  FETCH — CORS proxy con 5 opciones + manejo robusto de allorigins
+// ══════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════
+// TRADING HUB LAYER — Comunicación entre apps
+// ══════════════════════════════════════════════════════
+(function(){
+// Núcleo compartido (os-core.js) ya definió window.TradingHub — solo lo inicializamos.
+TradingHub.init('pulse', { MACRO_UPDATE: 'macro' });
+TradingHub.injectNav('pulse'); // menú flotante para navegar entre las 6 apps
+const hub = TradingHub; // alias local — el resto del archivo usa `hub.on(...)` sin cambios
+
+// Escuchar anomalías críticas del Anomaly Radar → mostrar badge
+hub.on('ANOMALY_UPDATE',function(payload){
+  if(!payload||!payload.scores) return;
+  const crits=Object.entries(payload.scores).filter(([,v])=>v.score>=65).map(([k,v])=>k+':'+v.score);
+  if(!crits.length) return;
+  const badge=document.getElementById('hub-anomaly-badge');
+  if(badge){ badge.textContent='⚠ '+crits.join(' · ');badge.style.display='inline'; }
+});
+
+// Escuchar protocolo completado
+hub.on('PROTOCOL_DONE',function(payload){
+  console.log('⬡ HUB: Protocolo completado —',payload);
+});
+
+// Indicador HUB en header
+setTimeout(function(){
+  const hdr=document.querySelector('.hdr');
+  if(!hdr||document.getElementById('hub-dot')) return;
+  // Badge de anomalías
+  const anomBadge=document.createElement('span');
+  anomBadge.id='hub-anomaly-badge';
+  anomBadge.style.cssText='display:none;font-family:monospace;font-size:9px;padding:3px 7px;border-radius:4px;background:rgba(255,79,94,.12);border:0.5px solid rgba(255,79,94,.3);color:#ff4f5e;';
+  hdr.appendChild(anomBadge);
+  // Dot hub
+  const dot=document.createElement('div');
+  dot.id='hub-dot';
+  dot.title='Trading Hub activo';
+  dot.style.cssText='width:7px;height:7px;border-radius:50%;background:#00d48a;box-shadow:0 0 6px #00d48a;cursor:pointer;flex-shrink:0;';
+  hdr.appendChild(dot);
+},600);
+
+// Emitir macro state después de cada fetch completo
+// Patch del render principal para emitir al hub
+const _origRender=typeof renderAll==='function'?renderAll:null;
+if(typeof renderAll==='function'){
+  const __orig=renderAll;
+  window.renderAll=function(){
+    const r=__orig.apply(this,arguments);
+    // BUG FIX v20.5: antes decía `window.MKT` — pero MKT se declaró con `let`,
+    // y las variables let/const de nivel superior NO se agregan a `window`
+    // (a diferencia de `var`). Esa condición siempre era falsa → este emit
+    // nunca se ejecutaba, nunca. Se corrige usando la referencia directa `MKT`
+    // (accesible por closure, ya que este bloque vive en el mismo script).
+    // También se corrigen los nombres de campo: MKT.fearGreed y MKT.sp no existen
+    // (los reales son MKT.fear_greed y MKT.sp500_futures) — antes siempre mandaban null.
+    if(window.TradingHub && MKT && Object.keys(MKT).length){
+      window.TradingHub.emit('MACRO_UPDATE',{
+        vix:MKT.vix||null, dxy:MKT.dxy||null, gold:MKT.gold||null,
+        fearGreed:MKT.fear_greed||null, sp:MKT.sp500_futures||null,
+        ndx:MKT.nq_futures||null, eurusd:MKT.eurusd||null, btc:MKT.btc||null,
+        twoTenSpread:MKT.two_ten_spread||null, highYieldSpread:MKT.high_yield_spread||null,
+        ts:Date.now()
+      });
+    }
+    return r;
+  };
+}
+})();
+</script>
+</body>
+</html>
