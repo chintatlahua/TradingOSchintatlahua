@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#080c10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>El Gusano · Protocolo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --bg:#080c10; --bg2:#0d1219; --bg3:#121820;
+  --b:rgba(255,255,255,.06); --b2:rgba(255,255,255,.12);
+  --g:#00e5a0; --r:#ff3d5a; --y:#f5c842; --bl:#4ab8ff;
+  --mu:#3a4a5a; --tx:#c8d8e8; --dm:#4a5a6a;
+  --mo:'DM Mono',monospace; --sa:'DM Sans',sans-serif; --di:'Bebas Neue',sans-serif;
+  --px:16px; --py:20px;
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+html{
+  height:100%;
+  -webkit-text-size-adjust:100%;
+  -ms-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+body{
+  background:var(--bg);color:var(--tx);font-family:var(--sa);
+  min-height:100vh;overflow-x:hidden;
+  padding-left:env(safe-area-inset-left,0px);
+  padding-right:env(safe-area-inset-right,0px);
+  -webkit-overflow-scrolling:touch;
+}
+
+button{
+  display:inline-block;border:none;background:none;font-family:inherit;
+  font-size:inherit;line-height:normal;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  -webkit-user-select:none;-moz-user-select:none;user-select:none;
+}
+button:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+
+input{
+  font-family:inherit;font-size:16px;line-height:normal;
+  -webkit-appearance:none;-moz-appearance:none;appearance:none;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type="number"]{-moz-appearance:textfield}
+
+/* ── MODAL DE CONFIRMACIÓN (reemplaza confirm() nativo — compatible iOS Safari standalone) ── */
+#confirm-modal{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.75);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:20px;
+}
+#confirm-modal.open{display:flex;}
+.cm-box{
+  background:var(--bg2);border:1px solid var(--b2);border-radius:16px;
+  padding:24px 20px;max-width:320px;width:100%;text-align:center;
+}
+.cm-title{font-family:var(--mo);font-size:11px;letter-spacing:2px;color:var(--mu);margin-bottom:10px;}
+.cm-msg{font-size:15px;font-weight:600;color:var(--tx);margin-bottom:22px;line-height:1.4;}
+.cm-btns{display:flex;gap:10px;}
+.cm-btn{flex:1;padding:12px;border-radius:10px;font-family:var(--mo);font-size:12px;
+  font-weight:700;letter-spacing:1px;cursor:pointer;border:none;transition:opacity .15s;}
+.cm-btn:active{opacity:.75;}
+.cm-cancel{background:var(--bg3);color:var(--mu);border:1px solid var(--b2);}
+.cm-ok{background:var(--r);color:#fff;}
+
+body::before{
+  content:'';position:fixed;top:0;left:0;right:0;bottom:0;
+  pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%,rgba(0,229,160,.04) 0%,transparent 60%),
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.015) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.015) 40px);
+}
+
+/* ── LAYOUT BASE (mobile-first, una columna) ── */
+.wrap{
+  position:relative;z-index:1;width:100%;max-width:600px;margin:0 auto;
+  padding:var(--py) var(--px) calc(32px + env(safe-area-inset-bottom,0px));
+}
+.layout{
+  display:-webkit-box;display:-ms-flexbox;display:flex;
+  -webkit-box-orient:vertical;-webkit-box-direction:normal;
+  -ms-flex-direction:column;flex-direction:column;
+  gap:0;
+}
+/* Mobile: panel arriba, fases abajo */
+.col-panel{-webkit-box-ordinal-group:1;-ms-flex-order:1;order:1;width:100%}
+.col-fases{-webkit-box-ordinal-group:2;-ms-flex-order:2;order:2;width:100%}
+
+/* HEADER */
+header{
+  display:-webkit-box;display:-ms-flexbox;display:flex;
+  -webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;
+  -webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;
+  -ms-flex-wrap:nowrap;flex-wrap:nowrap;gap:12px;margin-bottom:20px;
+}
+.logo-main{font-family:var(--di);font-size:36px;letter-spacing:2px;color:#fff;line-height:1;-ms-flex-negative:0;flex-shrink:0}
+.logo-main span{color:var(--g)}
+.logo-sub{font-family:var(--mo);font-size:8px;letter-spacing:3px;color:var(--mu);margin-top:4px;white-space:nowrap}
+.header-clock{text-align:right;-ms-flex-negative:0;flex-shrink:0}
+#clock{font-family:var(--mo);font-size:17px;font-weight:500;letter-spacing:2px;color:var(--bl);white-space:nowrap;-webkit-transition:color .3s;transition:color .3s}
+#clock.late{color:var(--r)}
+#dated{font-family:var(--mo);font-size:8px;color:var(--mu);margin-top:4px;letter-spacing:1px;white-space:nowrap}
+
+/* SESGO */
+.sbanner{
+  background:var(--bg2);border:1px solid var(--b);border-radius:12px;padding:12px 14px;margin-bottom:14px;
+  display:-webkit-box;display:-ms-flexbox;display:flex;
+  -webkit-box-align:center;-ms-flex-align:center;align-items:center;
+  -webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;
+  gap:10px;-ms-flex-wrap:wrap;flex-wrap:wrap;
+  -webkit-transition:all .4s;transition:all .4s;
+}
+.sbanner.bull {border-color:rgba(0,229,160,.3);background:rgba(0,229,160,.04)}
+.sbanner.bear {border-color:rgba(255,61,90,.3);background:rgba(255,61,90,.04)}
+.sbanner.rango{border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.03)}
+.sb-lbl{font-family:var(--mo);font-size:8px;letter-spacing:2px;color:var(--dm);margin-bottom:4px}
+.sb-val{font-family:var(--di);font-size:24px;letter-spacing:2px;color:var(--mu);-webkit-transition:color .3s;transition:color .3s}
+.sbanner.bull  .sb-val{color:var(--g)}
+.sbanner.bear  .sb-val{color:var(--r)}
+.sbanner.rango .sb-val{color:var(--y)}
+.sb-btns{display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-ms-flex-negative:0;flex-shrink:0;-ms-flex-wrap:nowrap;flex-wrap:nowrap}
+.sb-btn{
+  padding:8px 12px;border-radius:7px;border:1px solid var(--b2);
+  background:var(--bg3);color:var(--dm);font-family:var(--mo);
+  font-size:10px;letter-spacing:.5px;white-space:nowrap;min-height:40px;min-width:60px;
+  -webkit-transition:all .15s;transition:all .15s;
+}
+.sb-btn.a-bull {background:rgba(0,229,160,.12);border-color:var(--g);color:var(--g)}
+.sb-btn.a-bear {background:rgba(255,61,90,.12);border-color:var(--r);color:var(--r)}
+.sb-btn.a-rango{background:rgba(245,200,66,.1);border-color:var(--y);color:var(--y)}
+
+/* PROGRESS */
+.gcount{font-family:var(--mo);font-size:9px;color:var(--mu);text-align:right;margin-bottom:6px;letter-spacing:1px}
+.gbar{height:3px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:16px}
+.gbar-f{height:100%;background:-webkit-linear-gradient(left,var(--g),var(--bl));background:linear-gradient(to right,var(--g),var(--bl));-webkit-transition:width .5s ease;transition:width .5s ease;width:0%}
+
+/* FASES */
+.fase{background:var(--bg2);border:1px solid var(--b);border-radius:12px;margin-bottom:10px;overflow:hidden;-webkit-transition:border-color .3s;transition:border-color .3s}
+.fase.done  {border-color:rgba(0,229,160,.3)}
+.fase.locked{opacity:.3;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}
+.fhdr{
+  display:-webkit-box;display:-ms-flexbox;display:flex;
+  -webkit-box-align:center;-ms-flex-align:center;align-items:center;
+  gap:12px;padding:14px 16px;cursor:pointer;
+  -webkit-user-select:none;-moz-user-select:none;user-select:none;
+  border-bottom:1px solid transparent;
+  -webkit-transition:border-color .2s;transition:border-color .2s;min-height:56px;
+}
+.fase.open .fhdr{border-bottom-color:var(--b)}
+.fnum{font-family:var(--di);font-size:22px;color:var(--mu);min-width:30px;line-height:1;-webkit-transition:color .3s;transition:color .3s;-ms-flex-negative:0;flex-shrink:0}
+.fase.done .fnum{color:var(--g)}
+.finfo{-webkit-box-flex:1;-ms-flex:1;flex:1;min-width:0}
+.ftitle{font-size:13px;font-weight:600;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ftool{font-family:var(--mo);font-size:8px;color:var(--mu);letter-spacing:1px;margin-top:3px}
+.ftool span{background:rgba(74,184,255,.1);color:var(--bl);border:1px solid rgba(74,184,255,.2);padding:1px 5px;border-radius:3px}
+.farrow{font-size:11px;color:var(--dm);-webkit-transition:-webkit-transform .25s;transition:transform .25s;-ms-flex-negative:0;flex-shrink:0}
+.fase.open .farrow{-webkit-transform:rotate(180deg);transform:rotate(180deg)}
+.fbar{height:2px;background:var(--bg3);overflow:hidden}
+.fbar-f{height:100%;background:var(--g);-webkit-transition:width .4s ease;transition:width .4s ease;width:0%}
+.fbody{display:none;padding:14px 16px}
+.fase.open .fbody{display:block}
+
+/* CHECKS */
+.ci{
+  display:-webkit-box;display:-ms-flexbox;display:flex;
+  -webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;
+  gap:12px;padding:11px 0;cursor:pointer;
+  -webkit-user-select:none;-moz-user-select:none;user-select:none;min-height:48px;
+}
+.ci+.ci{border-top:1px solid var(--b)}
+.ci:active{opacity:.65}
+.cbox{
+  width:22px;height:22px;border-radius:4px;border:1.5px solid var(--mu);
+  -ms-flex-negative:0;flex-shrink:0;margin-top:1px;
+  display:-webkit-box;display:-ms-flexbox;display:flex;
+  -webkit-box-align:center;-ms-flex-align:center;align-items:center;
+  -webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;
+  font-size:12px;-webkit-transition:all .15s;transition:all .15s;
+}
+.ci.on .cbox{background:var(--g);border-color:var(--g);color:#000}
+.ci.on .ctxt{color:var(--dm);text-decoration:line-through}
+.ctxt{-webkit-box-flex:1;-ms-flex:1;flex:1;font-size:13px;line-height:1.5;color:var(--tx);min-width:0}
+.csub{font-family:var(--mo);font-size:9px;color:var(--dm);margin-top:3px;line-height:1.5}
+
+/* SEMÁFORO */
+.sem{display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--b);-ms-flex-wrap:wrap;flex-wrap:wrap}
+.sbtn{
+  -webkit-box-flex:1;-ms-flex:1;flex:1;min-width:0;
+  padding:10px 4px;border-radius:7px;border:1px solid var(--b);
+  background:var(--bg3);color:var(--dm);font-family:var(--mo);font-size:9px;text-align:center;min-height:44px;
+  -webkit-transition:all .15s;transition:all .15s;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.sbtn.sv{border-color:var(--g);color:var(--g);background:rgba(0,229,160,.08)}
+.sbtn.sa{border-color:var(--y);color:var(--y);background:rgba(245,200,66,.08)}
+.sbtn.sr{border-color:var(--r);color:var(--r);background:rgba(255,61,90,.08)}
+
+/* NOTAS */
+.fnote{font-family:var(--mo);font-size:9px;background:var(--bg3);border-radius:6px;padding:8px 10px;margin-top:10px;border-left:2px solid var(--b2);line-height:1.6;display:none}
+.fnote.ok{border-left-color:var(--g);color:rgba(0,229,160,.85)}
+.fnote.wa{border-left-color:var(--y);color:rgba(245,200,66,.85)}
+.fnote.er{border-left-color:var(--r);color:rgba(255,61,90,.85)}
+.stopc{background:rgba(255,61,90,.06);border:1px solid rgba(255,61,90,.22);border-radius:8px;padding:12px 14px;margin-top:10px;display:none}
+.stopc.on{display:block;-webkit-animation:fi .3s ease;animation:fi .3s ease}
+.st-title{font-family:var(--di);font-size:20px;color:var(--r);letter-spacing:2px;margin-bottom:4px}
+.st-msg{font-size:11px;color:rgba(255,61,90,.7);line-height:1.6}
+
+/* INPUTS */
+.opcard{background:var(--bg3);border:1px solid var(--b);border-radius:10px;padding:14px;margin-bottom:12px}
+.opcard-lbl{font-family:var(--mo);font-size:9px;letter-spacing:2px;color:var(--mu);margin-bottom:12px}
+.oprow{display:-webkit-box;display:-ms-flexbox;display:flex;gap:10px;margin-bottom:10px}
+.opf{-webkit-box-flex:1;-ms-flex:1;flex:1;min-width:0}
+.oplbl{font-family:var(--mo);font-size:8px;letter-spacing:1.5px;color:var(--dm);margin-bottom:5px}
+.opinput{
+  width:100%;background:var(--bg2);border:1px solid var(--b2);border-radius:6px;
+  padding:10px;color:var(--tx);font-family:var(--mo);font-size:16px;
+  outline:none;-webkit-transition:border-color .15s;transition:border-color .15s;
+}
+.opinput:focus{border-color:var(--g)}
+.lbtns{display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;-ms-flex-wrap:wrap;flex-wrap:wrap;margin-top:6px}
+.lbtn{
+  -webkit-box-flex:1;-ms-flex:1;flex:1;
+  padding:9px 6px;border-radius:5px;border:1px solid var(--b2);
+  background:var(--bg2);color:var(--dm);font-family:var(--mo);font-size:12px;min-height:40px;
+  -webkit-transition:all .15s;transition:all .15s;
+}
+.lbtn.on{background:rgba(0,229,160,.1);border-color:var(--g);color:var(--g)}
+#rrd{font-family:var(--mo);font-size:9px;color:var(--mu);margin-top:10px;padding-top:8px;border-top:1px solid var(--b);line-height:1.8;min-height:30px;word-break:break-word}
+
+/* MENTAL */
+.mhdr{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;margin:14px 0 8px;-ms-flex-wrap:wrap;flex-wrap:wrap;gap:4px}
+.mhdr-lbl{font-family:var(--mo);font-size:8px;letter-spacing:1.5px;color:var(--dm)}
+#mval{font-family:var(--mo);font-size:9px;color:var(--mu)}
+.mrow{display:-webkit-box;display:-ms-flexbox;display:flex;gap:6px;margin-bottom:14px}
+.mbtn{-webkit-box-flex:1;-ms-flex:1;flex:1;padding:10px 4px;border-radius:7px;border:1px solid var(--b);background:var(--bg2);font-size:22px;text-align:center;min-height:50px;-webkit-transition:all .15s;transition:all .15s}
+.mbtn.on{border-color:var(--y);background:rgba(245,200,66,.08)}
+
+/* FOOTER */
+.factions{display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;margin-top:16px}
+.btn-go{
+  -webkit-box-flex:2;-ms-flex:2;flex:2;padding:14px;background:var(--g);color:#000;border:none;
+  border-radius:9px;font-family:var(--mo);font-size:11px;font-weight:600;
+  letter-spacing:1.5px;min-height:52px;-webkit-transition:all .15s;transition:all .15s;
+}
+.btn-go:hover:not(:disabled){background:#00ffb3;-webkit-transform:translateY(-1px);transform:translateY(-1px)}
+.btn-go:disabled{opacity:.3;cursor:default;-webkit-transform:none;transform:none}
+.btn-rst{
+  -webkit-box-flex:1;-ms-flex:1;flex:1;padding:14px;background:var(--bg2);color:var(--dm);
+  border:1px solid var(--b2);border-radius:9px;font-family:var(--mo);font-size:11px;
+  letter-spacing:1px;min-height:52px;-webkit-transition:all .15s;transition:all .15s;
+}
+.btn-rst:hover{border-color:var(--r);color:var(--r)}
+
+/* RESUMEN */
+.rescard{background:rgba(0,229,160,.04);border:1px solid rgba(0,229,160,.2);border-radius:12px;padding:16px;margin-top:12px;display:none}
+.rescard.on{display:block;-webkit-animation:fi .4s ease;animation:fi .4s ease}
+.res-title{font-family:var(--di);font-size:26px;color:var(--g);letter-spacing:2px;margin-bottom:12px}
+.resrow{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;-webkit-box-align:center;-ms-flex-align:center;align-items:center;padding:7px 0;border-bottom:1px solid var(--b);gap:8px}
+.resrow:last-child{border-bottom:none}
+.resk{color:var(--dm);font-family:var(--mo);font-size:9px;letter-spacing:1px;-ms-flex-negative:0;flex-shrink:0}
+.resv{font-weight:600;text-align:right;font-size:13px}
+
+/* STOP GLOBAL */
+#gstop{background:rgba(255,61,90,.06);border:1px solid rgba(255,61,90,.22);border-radius:10px;padding:14px 16px;margin-top:10px;display:none}
+#gstop.on{display:block;-webkit-animation:fi .3s ease;animation:fi .3s ease}
+
+@-webkit-keyframes fi{from{opacity:0;-webkit-transform:translateY(4px)}to{opacity:1;-webkit-transform:translateY(0)}}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── RESPONSIVE ──────────────────────────── */
+
+/* Muy pequeño: < 360px */
+@media screen and (max-width:359px){
+  :root{--px:12px;--py:14px}
+  .logo-main{font-size:26px}
+  #clock{font-size:13px;letter-spacing:1px}
+  .sbanner{-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;-webkit-box-align:stretch;-ms-flex-align:stretch;align-items:stretch}
+  .sb-btns{-ms-flex-wrap:wrap;flex-wrap:wrap;width:100%}
+  .sb-btn{-webkit-box-flex:1;-ms-flex:1;flex:1;text-align:center}
+  .oprow{-webkit-box-orient:vertical;-webkit-box-direction:normal;-ms-flex-direction:column;flex-direction:column;gap:8px}
+  #rrd{font-size:8.5px}
+}
+
+/* Pequeño: 360–479px */
+@media screen and (min-width:360px) and (max-width:479px){
+  :root{--px:14px;--py:16px}
+  .logo-main{font-size:30px}
+  #clock{font-size:15px}
+}
+
+/* Estándar: 480–767px — iPhone 14/15, Galaxy S, tablets pequeñas */
+@media screen and (min-width:480px) and (max-width:767px){
+  .logo-main{font-size:34px}
+  .sb-btn{padding:8px 14px}
+  .sem{gap:8px}
+}
+
+/* ── DESKTOP / SAFARI MACOS: ≥ 768px → 2 columnas ── */
+@media screen and (min-width:768px){
+  :root{--px:24px;--py:28px}
+
+  /* El wrap pasa a full-width con max razonable */
+  .wrap{max-width:1280px;margin:0 auto}
+
+  /* Header: más generoso */
+  header{margin-bottom:24px}
+  .logo-main{font-size:40px}
+  #clock{font-size:19px}
+
+  /* Grid 2 columnas: fases | panel derecho */
+  .layout{
+    -webkit-box-orient:horizontal;-webkit-box-direction:normal;
+    -ms-flex-direction:row;flex-direction:row;
+    gap:20px;
+    -webkit-box-align:flex-start;-ms-flex-align:flex-start;align-items:flex-start;
+  }
+  .col-fases{
+    -webkit-box-flex:1;-ms-flex:1;flex:1;min-width:0;
+    -webkit-box-ordinal-group:1;-ms-flex-order:1;order:1;
+  }
+  .col-panel{
+    width:300px;-ms-flex-negative:0;flex-shrink:0;
+    -webkit-box-ordinal-group:2;-ms-flex-order:2;order:2;
+    position:-webkit-sticky;position:sticky;top:24px;
+  }
+
+  /* Fases más cómodas */
+  .fhdr{padding:14px 18px}
+  .fbody{padding:16px 18px}
+  .fase{border-radius:14px;margin-bottom:10px}
+  .opcard{padding:18px}
+  .oprow{gap:14px}
+  .lbtns{gap:8px}
+  .mrow{gap:10px}
+  .sem{gap:8px}
+
+  /* Panel derecho: sesgo + resumen + botones */
+  .sbanner{margin-bottom:12px}
+  .rescard{padding:18px;margin-top:12px}
+  .factions{margin-top:12px;gap:10px}
+  .sb-btn{padding:9px 14px}
+}
+
+/* Pantallas anchas: ≥ 1024px — más espacio */
+@media screen and (min-width:1024px){
+  :root{--px:32px;--py:32px}
+  .col-panel{width:320px}
+  .rescard{padding:20px}
+}
+
+/* Pantallas grandes: ≥ 1400px */
+@media screen and (min-width:1400px){
+  :root{--px:48px}
+  .wrap{max-width:1400px}
+  .col-panel{width:340px}
+}
+
+/* Landscape móvil */
+@media screen and (max-height:500px) and (orientation:landscape){
+  :root{--py:12px}
+  header{margin-bottom:10px}
+  .sbanner{margin-bottom:8px}
+  .gbar{margin-bottom:10px}
+  .fhdr{min-height:44px;padding:10px 14px}
+  .fbody{padding:10px 14px}
+  .mbtn{min-height:40px;font-size:18px}
+  .btn-go,.btn-rst{min-height:44px;padding:10px}
+}
+
+/* Accesibilidad: movimiento reducido */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    -webkit-animation-duration:.01ms !important;
+    animation-duration:.01ms !important;
+    -webkit-transition-duration:.01ms !important;
+    transition-duration:.01ms !important;
+  }
+}
+
+/* Impresión */
+@media print{
+  body{background:#fff;color:#000}
+  body::before{display:none}
+  .fase.locked{opacity:1}
+  .btn-go,.btn-rst,.factions{display:none}
+  .fbody{display:block !important}
+}
+</style>
+<script src="os-core.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <div class="logo-main">EL <span>GUSANO</span></div>
+    <div class="logo-sub">PROTOCOLO · PRE-ENTRADA</div>
+  </div>
+  <div class="header-clock">
+    <div id="clock">--:--:--</div>
+    <div id="dated">---</div>
+  </div>
+</header>
+
+<div class="layout">
+
+<!-- ── COLUMNA IZQUIERDA: 6 fases ── -->
+<div class="col-fases">
+
+<div class="fase open" id="f1">
+  <div class="fhdr" onclick="tF(1)"><div class="fnum">01</div><div class="finfo"><div class="ftitle">Contexto Macro</div><div class="ftool"><span>Market Pulse</span> · 5 min</div></div><div class="farrow">▾</div></div>
+  <div class="fbar"><div class="fbar-f" id="fb1"></div></div>
+  <div class="fbody">
+    <div class="ci" onclick="tC(this,1)"><div class="cbox">✓</div><div><div class="ctxt">VIX revisado</div><div class="csub">&lt;20 normal · &gt;25 cautela · &gt;30 no operar</div></div></div>
+    <div class="ci" onclick="tC(this,1)"><div class="cbox">✓</div><div><div class="ctxt">DXY revisado</div><div class="csub">DXY fuerte → presión bajista en US500 y XAU</div></div></div>
+    <div class="ci" onclick="tC(this,1)"><div class="cbox">✓</div><div><div class="ctxt">Fear &amp; Greed revisado</div><div class="csub">&lt;20 miedo extremo · &gt;80 codicia extrema → cautela</div></div></div>
+    <div class="ci" onclick="tC(this,1)"><div class="cbox">✓</div><div><div class="ctxt">Señal general del dashboard</div><div class="csub">LARGOS / CORTOS / NO OPERAR</div></div></div>
+    <div class="sem">
+      <button type="button" class="sbtn" data-val="v" onclick="setSem(1,'v',this)">🟢 OK</button>
+      <button type="button" class="sbtn" data-val="a" onclick="setSem(1,'a',this)">🟡 CAUTELA</button>
+      <button type="button" class="sbtn" data-val="r" onclick="setSem(1,'r',this)">🔴 STOP</button>
+    </div>
+    <div class="stopc" id="sc1"><div class="st-title">STOP — FASE 1</div><div class="st-msg">Dashboard dice NO OPERAR. Cierra TradingView y espera mañana.</div></div>
+    <div class="fnote" id="fn1"></div>
+  </div>
+</div>
+
+<div class="fase locked" id="f2">
+  <div class="fhdr" onclick="tF(2)"><div class="fnum">02</div><div class="finfo"><div class="ftitle">Sesgo Direccional</div><div class="ftool"><span>TradingView</span> · 15M · 3 min</div></div><div class="farrow">▾</div></div>
+  <div class="fbar"><div class="fbar-f" id="fb2"></div></div>
+  <div class="fbody">
+    <div class="ci" onclick="tC(this,2)"><div class="cbox">✓</div><div><div class="ctxt">Precio vs ZLMA 462</div><div class="csub">Debajo → sesgo bajista · Arriba → sesgo alcista</div></div></div>
+    <div class="ci" onclick="tC(this,2)"><div class="cbox">✓</div><div><div class="ctxt">Precio vs EMA 960</div><div class="csub">Ambas medias deben coincidir con la ZLMA</div></div></div>
+    <div class="ci" onclick="tC(this,2)"><div class="cbox">✓</div><div><div class="ctxt">Stack de medias alineado</div><div class="csub">EMA 30 → EMA 60 → EMA 960 → ZLMA (ordenado)</div></div></div>
+    <div class="ci" onclick="tC(this,2)"><div class="cbox">✓</div><div><div class="ctxt">Sesgo registrado en el banner</div><div class="csub">Bull / Bear / Rango seleccionado arriba</div></div></div>
+    <div class="sem">
+      <button type="button" class="sbtn" data-val="v" onclick="setSem(2,'v',this)">🟢 CLARO</button>
+      <button type="button" class="sbtn" data-val="a" onclick="setSem(2,'a',this)">🟡 ENTRE MEDIAS</button>
+      <button type="button" class="sbtn" data-val="r" onclick="setSem(2,'r',this)">🔴 SIN SESGO</button>
+    </div>
+    <div class="stopc" id="sc2"><div class="st-title">STOP — FASE 2</div><div class="st-msg">Sin sesgo claro. Precio entre ZLMA y EMA 960.<br>Regla tierra de nadie: VWAP + AEC.</div></div>
+    <div class="fnote" id="fn2"></div>
+  </div>
+</div>
+
+<div class="fase locked" id="f3">
+  <div class="fhdr" onclick="tF(3)"><div class="fnum">03</div><div class="finfo"><div class="ftitle">Anomalía de Mercado</div><div class="ftool"><span>Anomaly Radar</span> · 2 min</div></div><div class="farrow">▾</div></div>
+  <div class="fbar"><div class="fbar-f" id="fb3"></div></div>
+  <div class="fbody">
+    <div class="ci" onclick="tC(this,3)"><div class="cbox">✓</div><div><div class="ctxt">Score del Anomaly Radar revisado</div><div class="csub">&lt;30 normal · 30–65 cautela · &gt;65 no operar</div></div></div>
+    <div class="ci" onclick="tC(this,3)"><div class="cbox">✓</div><div><div class="ctxt">Sesiones activas confirmadas</div><div class="csub">Forex Tracker: ¿estoy en horario de liquidez?</div></div></div>
+    <div class="ci" onclick="tC(this,3)"><div class="cbox">✓</div><div><div class="ctxt">Noticias del día revisadas</div><div class="csub">NFP / CPI / FOMC → 30 min antes y 15 min después: no entrar</div></div></div>
+    <div class="sem">
+      <button type="button" class="sbtn" data-val="v" onclick="setSem(3,'v',this)">🟢 &lt;30</button>
+      <button type="button" class="sbtn" data-val="a" onclick="setSem(3,'a',this)">🟡 30–65</button>
+      <button type="button" class="sbtn" data-val="r" onclick="setSem(3,'r',this)">🔴 &gt;65</button>
+    </div>
+    <div class="stopc" id="sc3"><div class="st-title">STOP — FASE 3</div><div class="st-msg">Score &gt;65 o noticia mayor activa.<br>Esperar normalización antes de continuar.</div></div>
+    <div class="fnote" id="fn3"></div>
+  </div>
+</div>
+
+<div class="fase locked" id="f4">
+  <div class="fhdr" onclick="tF(4)"><div class="fnum">04</div><div class="finfo"><div class="ftitle">Trigger de Entrada</div><div class="ftool"><span>TradingView</span> · 15M + 5M</div></div><div class="farrow">▾</div></div>
+  <div class="fbar"><div class="fbar-f" id="fb4"></div></div>
+  <div class="fbody">
+    <div class="ci" onclick="tC(this,4)"><div class="cbox">✓</div><div><div class="ctxt">IFVG identificado en dirección del sesgo</div><div class="csub">15M o 5M · alineado con Bull / Bear</div></div></div>
+    <div class="ci" onclick="tC(this,4)"><div class="cbox">✓</div><div><div class="ctxt">FR-ADX &gt;14 con F1 activo</div><div class="csub">Mínimo de momentum confirmado en el TF</div></div></div>
+    <div class="ci" onclick="tC(this,4)"><div class="cbox">✓</div><div><div class="ctxt">ZLMA / EMA 960 respetada</div><div class="csub">No cerró vela encima (bear) / debajo (bull)</div></div></div>
+    <div class="ci" onclick="tC(this,4)"><div class="cbox">✓</div><div><div class="ctxt">Horario antes de 14:00 CDMX</div><div class="csub">Después de las 2 PM no abrir posiciones nuevas</div></div></div>
+    <div class="sem">
+      <button type="button" class="sbtn" data-val="v" onclick="setSem(4,'v',this)">🟢 SETUP OK</button>
+      <button type="button" class="sbtn" data-val="a" onclick="setSem(4,'a',this)">🟡 ESPERAR</button>
+      <button type="button" class="sbtn" data-val="r" onclick="setSem(4,'r',this)">🔴 SIN SETUP</button>
+    </div>
+    <div class="stopc" id="sc4"><div class="st-title">STOP — FASE 4</div><div class="st-msg">Sin trigger válido o ya pasaron las 14:00 CDMX.<br>No forzar entrada. Esperar próximo setup.</div></div>
+    <div class="fnote" id="fn4"></div>
+  </div>
+</div>
+
+<div class="fase locked" id="f5">
+  <div class="fhdr" onclick="tF(5)"><div class="fnum">05</div><div class="finfo"><div class="ftitle">Parámetros de Entrada</div><div class="ftool"><span>cTrader</span> · Pepperstone</div></div><div class="farrow">▾</div></div>
+  <div class="fbar"><div class="fbar-f" id="fb5"></div></div>
+  <div class="fbody">
+    <div class="opcard">
+      <div class="opcard-lbl">DATOS DE LA OPERACIÓN</div>
+      <div class="oprow">
+        <div class="opf"><div class="oplbl">ENTRADA</div><input class="opinput" id="oe" type="number" inputmode="decimal" step="0.1" placeholder="6327.0" autocomplete="off" oninput="calcRR()"></div>
+        <div class="opf"><div class="oplbl">STOP LOSS</div><input class="opinput" id="osl" type="number" inputmode="decimal" step="0.1" placeholder="6380.0" autocomplete="off" style="color:var(--r)" oninput="calcRR()"></div>
+      </div>
+      <div class="oprow">
+        <div class="opf"><div class="oplbl">TAKE PROFIT</div><input class="opinput" id="otp" type="number" inputmode="decimal" step="0.1" placeholder="6128.0" autocomplete="off" style="color:var(--g)" oninput="calcRR()"></div>
+        <div class="opf"><div class="oplbl">LOTE</div><input class="opinput" id="olote" type="number" inputmode="decimal" step="0.01" placeholder="0.10" autocomplete="off" oninput="syncLote()"></div>
+      </div>
+      <div class="lbtns">
+        <button type="button" class="lbtn" onclick="setLote(0.1)">0.1</button>
+        <button type="button" class="lbtn" onclick="setLote(0.2)">0.2</button>
+        <button type="button" class="lbtn" onclick="setLote(0.3)">0.3</button>
+        <button type="button" class="lbtn" onclick="setLote(0.5)">0.5</button>
+      </div>
+      <div id="rrd">RR: — · Riesgo: — pts · Objetivo: — pts</div>
+    </div>
+    <div class="ci" onclick="tC(this,5)"><div class="cbox">✓</div><div><div class="ctxt">SL definido y ≠ 0</div><div class="csub">Ninguna operación sin SL en plataforma</div></div></div>
+    <div class="ci" onclick="tC(this,5)"><div class="cbox">✓</div><div><div class="ctxt">RR ≥ 1.5</div><div class="csub">Si RR &lt; 1.5 el riesgo no justifica la entrada</div></div></div>
+    <div class="ci" onclick="tC(this,5)"><div class="cbox">✓</div><div><div class="ctxt">Lote acorde al riesgo del día</div><div class="csub">Máx 1% de la cuenta por operación</div></div></div>
+    <div class="mhdr"><div class="mhdr-lbl">ESTADO MENTAL</div><div id="mval">sin registrar</div></div>
+    <div class="mrow">
+      <button type="button" class="mbtn" title="Ansioso"   onclick="setMental(1,this)">😤</button>
+      <button type="button" class="mbtn" title="Normal"    onclick="setMental(2,this)">😐</button>
+      <button type="button" class="mbtn" title="Enfocado"  onclick="setMental(3,this)">🙂</button>
+      <button type="button" class="mbtn" title="Flow"      onclick="setMental(4,this)">🧘</button>
+      <button type="button" class="mbtn" title="Modo dios" onclick="setMental(5,this)">🔥</button>
+    </div>
+    <div class="sem" style="margin-top:0">
+      <button type="button" class="sbtn" data-val="v" onclick="setSem(5,'v',this)">🟢 PARÁMETROS OK</button>
+      <button type="button" class="sbtn" data-val="r" onclick="setSem(5,'r',this)">🔴 REVISAR</button>
+    </div>
+    <div class="fnote" id="fn5"></div>
+  </div>
+</div>
+
+<div class="fase locked" id="f6">
+  <div class="fhdr" onclick="tF(6)"><div class="fnum">06</div><div class="finfo"><div class="ftitle">Registro en Journal</div><div class="ftool"><span>Trading Journal</span></div></div><div class="farrow">▾</div></div>
+  <div class="fbar"><div class="fbar-f" id="fb6"></div></div>
+  <div class="fbody">
+    <div class="ci" onclick="tC(this,6)"><div class="cbox">✓</div><div><div class="ctxt">Operación registrada en Journal</div><div class="csub">Entrada, SL, TP, lote, sesgo y protocolo completo</div></div></div>
+    <div class="ci" onclick="tC(this,6)"><div class="cbox">✓</div><div><div class="ctxt">Nota de por qué entraste</div><div class="csub">Qué viste exactamente: IFVG, ZLMA, FR-ADX</div></div></div>
+    <div class="ci" onclick="tC(this,6)"><div class="cbox">✓</div><div><div class="ctxt">Screenshot del setup tomado</div><div class="csub">Entry, SL y TP marcados en el gráfico</div></div></div>
+    <div class="sem">
+      <button type="button" class="sbtn" data-val="v" onclick="setSem(6,'v',this)">🟢 REGISTRADO</button>
+      <button type="button" class="sbtn" data-val="r" onclick="setSem(6,'r',this)">🔴 PENDIENTE</button>
+    </div>
+    <div class="fnote" id="fn6"></div>
+  </div>
+</div>
+
+</div><!-- /col-fases -->
+
+<!-- ── COLUMNA DERECHA: panel sticky ── -->
+<div class="col-panel">
+
+<div class="sbanner" id="sbanner">
+  <div><div class="sb-lbl">SESGO DEL DÍA</div><div class="sb-val" id="sval">SIN DEFINIR</div></div>
+  <div class="sb-btns">
+    <button type="button" class="sb-btn" id="btn-bull"  onclick="setSesgo('bull')">▲ BULL</button>
+    <button type="button" class="sb-btn" id="btn-bear"  onclick="setSesgo('bear')">▼ BEAR</button>
+    <button type="button" class="sb-btn" id="btn-rango" onclick="setSesgo('rango')">— RANGO</button>
+  </div>
+</div>
+
+<div class="gcount" id="gcount">FASE 0 / 6</div>
+<div class="gbar"><div class="gbar-f" id="gbarf"></div></div>
+
+<div id="gstop">
+  <div class="st-title">⛔ PROTOCOLO DETENIDO</div>
+  <div class="st-msg">Una fase marcó ROJO. No abrir operación.<br>Corregir las condiciones o esperar el próximo setup.</div>
+</div>
+
+<div class="rescard" id="rescard">
+  <div class="res-title">✓ LISTO PARA ENTRAR</div>
+  <div class="resrow"><span class="resk">SESGO</span>      <span class="resv" id="rs">—</span></div>
+  <div class="resrow"><span class="resk">ENTRADA</span>     <span class="resv" id="re">—</span></div>
+  <div class="resrow"><span class="resk">STOP LOSS</span>   <span class="resv" id="rsl" style="color:var(--r)">—</span></div>
+  <div class="resrow"><span class="resk">TAKE PROFIT</span> <span class="resv" id="rtp" style="color:var(--g)">—</span></div>
+  <div class="resrow"><span class="resk">LOTE</span>        <span class="resv" id="rlote">—</span></div>
+  <div class="resrow"><span class="resk">R:R</span>         <span class="resv" id="rrr" style="color:var(--bl)">—</span></div>
+  <div class="resrow"><span class="resk">MENTAL</span>      <span class="resv" id="rmental">—</span></div>
+  <div class="resrow"><span class="resk">HORA</span>        <span class="resv" id="rhora">—</span></div>
+</div>
+
+<div class="factions">
+  <button type="button" class="btn-go" id="btngo" disabled onclick="confirmar()">CONFIRMAR ENTRADA</button>
+  <button type="button" class="btn-rst" onclick="doReset()">↺ RESET</button>
+</div>
+
+</div><!-- /col-panel -->
+
+</div><!-- /layout -->
+
+</div>
+<script>
+'use strict';
+var S={sesgo:null,sem:{1:null,2:null,3:null,4:null,5:null,6:null},mental:null,confirmed:false};
+var NOTES={
+  1:{v:'Macro OK — continuar.',a:'Cautela: VIX elevado o señal mixta. Reduce lote al mínimo.',r:'Condiciones macro adversas. No continuar hoy.'},
+  2:{v:'Sesgo claro confirmado.',a:'Tierra de nadie — usar VWAP 2-3σ + AEC como referencia.',r:'Sin sesgo — no continuar.'},
+  3:{v:'Mercado tranquilo — setup normal.',a:'Anomalía moderada — reducir lote al mínimo.',r:'Score >65 o noticia activa — esperar normalización.'},
+  4:{v:'Trigger válido — preparar entrada en plataforma.',a:'Setup incompleto — esperar confirmación de F3.',r:'Sin trigger o después de las 14:00 CDMX — no entrar.'},
+  5:{v:'Parámetros confirmados — proceder al registro.',r:'Revisar SL, RR o lote antes de continuar.'},
+  6:{v:'Operación registrada. ¡Puedes ejecutar!',r:'Registrar en Journal antes de ejecutar.'}
+};
+var ML={1:'😤 Ansioso',2:'😐 Normal',3:'🙂 Enfocado',4:'🧘 Flow',5:'🔥 Modo dios'};
+function $id(id){return document.getElementById(id)}
+
+function tick(){
+  var now=new Date();
+  try{
+    var fmt=new Intl.DateTimeFormat('es-MX',{timeZone:'America/Mexico_City',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,weekday:'short',day:'2-digit',month:'short'});
+    var parts=fmt.formatToParts(now);
+    var get=function(t){var p=parts.find(function(x){return x.type===t;});return p?p.value:''};
+    $id('clock').textContent=get('hour')+':'+get('minute')+':'+get('second');
+    $id('dated').textContent=get('weekday')+' '+get('day')+' '+get('month');
+    $id('clock').classList.toggle('late',parseInt(get('hour'),10)>=14);
+  }catch(e){
+    var p=function(n){return String(n).padStart(2,'0')};
+    $id('clock').textContent=p(now.getHours())+':'+p(now.getMinutes())+':'+p(now.getSeconds());
+    $id('dated').textContent=now.toLocaleDateString('es');
+  }
+}
+setInterval(tick,1000);tick();
+
+function setSesgo(t){
+  if(S.sesgo===t){S.sesgo=null;$id('sval').textContent='SIN DEFINIR';$id('sbanner').className='sbanner';$id('btn-'+t).className='sb-btn';refreshConfirm();return}
+  S.sesgo=t;
+  var lbl={bull:'▲ ALCISTA',bear:'▼ BAJISTA',rango:'— RANGO'};
+  $id('sval').textContent=lbl[t];$id('sbanner').className='sbanner '+t;
+  ['bull','bear','rango'].forEach(function(k){$id('btn-'+k).className='sb-btn'+(k===t?' a-'+k:'')});
+  refreshConfirm();
+}
+
+function tF(n){var el=$id('f'+n);if(el.classList.contains('locked'))return;el.classList.toggle('open')}
+
+function tC(el,fase){
+  el.classList.toggle('on');
+  var items=document.querySelectorAll('#f'+fase+' .ci'),done=0;
+  items.forEach(function(i){if(i.classList.contains('on'))done++});
+  $id('fb'+fase).style.width=(done/items.length*100)+'%';
+}
+
+function setSem(fase,c,btn){
+  if(S.sem[fase]===c){
+    S.sem[fase]=null;btn.classList.remove('sv','sa','sr');
+    var n=$id('fn'+fase);n.style.display='none';n.textContent='';
+    var sc=$id('sc'+fase);if(sc)sc.classList.remove('on');
+    relock();refreshConfirm();return;
+  }
+  S.sem[fase]=c;
+  document.querySelectorAll('#f'+fase+' .sbtn').forEach(function(b){b.classList.remove('sv','sa','sr')});
+  btn.classList.add({v:'sv',a:'sa',r:'sr'}[c]);
+  var sc2=$id('sc'+fase);if(sc2)sc2.classList.toggle('on',c==='r');
+  var note=$id('fn'+fase),msg=NOTES[fase]&&NOTES[fase][c];
+  if(note&&msg){note.textContent=msg;note.className='fnote '+(c==='v'?'ok':c==='a'?'wa':'er');note.style.display='block'}
+  relock();refreshConfirm();
+}
+
+function relock(){
+  var stopAt=7;
+  for(var i=1;i<=6;i++){if(S.sem[i]==='r'){stopAt=i;break}}
+  $id('gstop').classList.toggle('on',stopAt<=6);
+  for(var j=2;j<=6;j++){
+    var el=$id('f'+j),lock=!(S.sem[j-1]==='v'||S.sem[j-1]==='a')||j>stopAt;
+    el.classList.toggle('locked',lock);if(lock)el.classList.remove('open');
+  }
+  var greens=0;
+  for(var k=1;k<=6;k++){$id('f'+k).classList.toggle('done',S.sem[k]==='v');if(S.sem[k]==='v')greens++}
+  $id('gbarf').style.width=(greens/6*100)+'%';$id('gcount').textContent='FASE '+greens+' / 6';
+}
+
+function syncLote(){
+  var v=parseFloat($id('olote').value);
+  document.querySelectorAll('.lbtn').forEach(function(b){b.classList.toggle('on',!isNaN(v)&&Math.abs(parseFloat(b.textContent)-v)<0.001)});
+  calcRR();
+}
+
+function calcRR(){
+  var e=parseFloat($id('oe').value),sl=parseFloat($id('osl').value),tp=parseFloat($id('otp').value),rrd=$id('rrd');
+  if(isNaN(e)||isNaN(sl)||isNaN(tp)){rrd.innerHTML='RR: — · Riesgo: — pts · Objetivo: — pts';refreshConfirm();return}
+  var risk=Math.abs(e-sl),reward=Math.abs(tp-e);
+  if(risk===0){rrd.innerHTML='<span style="color:var(--r)">⚠ SL igual a la entrada</span>';refreshConfirm();return}
+  var rr=reward/risk,rrS=rr.toFixed(2),col=rr>=1.5?'var(--g)':rr>=1?'var(--y)':'var(--r)';
+  rrd.innerHTML='RR: <span style="color:'+col+';font-weight:600">1:'+rrS+'</span> &nbsp;·&nbsp; Riesgo: <span style="color:var(--r)">'+risk.toFixed(1)+' pts</span> &nbsp;·&nbsp; Objetivo: <span style="color:var(--g)">'+reward.toFixed(1)+' pts</span>';
+  refreshConfirm();
+}
+
+function setLote(v){
+  $id('olote').value=v;
+  document.querySelectorAll('.lbtn').forEach(function(b){b.classList.toggle('on',Math.abs(parseFloat(b.textContent)-v)<0.001)});
+  calcRR();
+}
+
+function setMental(v,el){
+  if(S.mental===v){S.mental=null;el.classList.remove('on');$id('mval').textContent='sin registrar';refreshConfirm();return}
+  S.mental=v;document.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});
+  el.classList.add('on');$id('mval').textContent=ML[v];refreshConfirm();
+}
+
+function refreshConfirm(){
+  var allGreen=Object.values(S.sem).every(function(v){return v==='v'});
+  var e=$id('oe').value.trim(),sl=$id('osl').value.trim(),tp=$id('otp').value.trim(),lot=$id('olote').value.trim();
+  var risk=Math.abs(parseFloat(e)-parseFloat(sl));
+  var hasParams=e&&sl&&tp&&lot&&parseFloat(sl)!==0&&risk>0&&Math.abs(parseFloat(tp)-parseFloat(e))/risk>=1.5;
+  var ready=allGreen&&S.sesgo!==null&&S.mental!==null&&hasParams;
+  if(!S.confirmed)$id('btngo').disabled=!ready;
+  if(ready)buildResumen();else if(!S.confirmed)$id('rescard').classList.remove('on');
+}
+
+function buildResumen(){
+  var lbl={bull:'▲ ALCISTA',bear:'▼ BAJISTA',rango:'— RANGO'},col={bull:'var(--g)',bear:'var(--r)',rango:'var(--y)'};
+  var e=parseFloat($id('oe').value),sl=parseFloat($id('osl').value),tp=parseFloat($id('otp').value),lot=$id('olote').value;
+  var risk=Math.abs(e-sl),rr=risk>0?(Math.abs(tp-e)/risk).toFixed(2):'—';
+  var hora;
+  try{hora=new Intl.DateTimeFormat('es-MX',{timeZone:'America/Mexico_City',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date())+' CDMX'}
+  catch(e2){var n=new Date();hora=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+' local'}
+  function set(id,txt,c){var el=$id(id);el.textContent=txt;if(c)el.style.color=c}
+  set('rs',lbl[S.sesgo],col[S.sesgo]);set('re',e);set('rsl',sl);set('rtp',tp);
+  set('rlote',lot);set('rrr','1:'+rr);set('rmental',ML[S.mental]);set('rhora',hora);
+  $id('rescard').classList.add('on');
+}
+
+function confirmar(){
+  if(S.confirmed)return;S.confirmed=true;
+  var btn=$id('btngo');btn.textContent='✓ ENTRADA REGISTRADA';btn.style.background='var(--bl)';btn.disabled=true;
+
+  // ── Emitir al Hub para pre-llenar el Journal ──
+  if(window.TradingHub){
+    var e=parseFloat($id('oe').value),sl=parseFloat($id('osl').value),tp=parseFloat($id('otp').value);
+    var lote=$id('olote').value;
+    var risk=Math.abs(e-sl);
+    var rr=risk>0?(Math.abs(tp-e)/risk).toFixed(2):'—';
+
+    // ── Contexto de mercado en el momento de la confirmación ──
+    // Antes: Fase 3 mostraba el score de Anomaly Radar en pantalla pero se descartaba —
+    // nunca llegaba al Journal. Ahora se captura como snapshot permanente del trade,
+    // para poder cruzar después "resultado vs. condiciones de mercado al entrar".
+    // No hace ninguna llamada de red — solo lee lo que ya está en el hub (localStorage),
+    // último dato que haya publicado Anomaly Radar / Market Pulse la última vez que se abrieron.
+    var anomalySnap=window.TradingHub.getAnomalyState();
+    var macroSnap=window.TradingHub.getMacroState();
+    var ctxAnomalyScore=null, ctxAnomalyAsset=null, ctxAnomalyAgeSec=null;
+    if(anomalySnap&&anomalySnap.scores){
+      var scores=anomalySnap.scores;
+      ctxAnomalyScore=Math.max.apply(null,Object.values(scores).map(function(v){return v.score||0;}));
+      var top=Object.entries(scores).find(function(entry){return entry[1].score===ctxAnomalyScore;});
+      ctxAnomalyAsset=top?top[0]:null;
+      ctxAnomalyAgeSec=anomalySnap._ts?Math.round((Date.now()-anomalySnap._ts)/1000):null;
+    }
+    var context={
+      anomalyScore:ctxAnomalyScore,
+      anomalyAsset:ctxAnomalyAsset,
+      anomalyAgeSec:ctxAnomalyAgeSec, // qué tan viejo es el dato — importante para no confiar en info stale
+      vix:(macroSnap&&macroSnap.vix)||null,
+      dxy:(macroSnap&&macroSnap.dxy)||null,
+      macroAgeSec:(macroSnap&&macroSnap._ts)?Math.round((Date.now()-macroSnap._ts)/1000):null
+    };
+
+    var payload={
+      sesgo:S.sesgo,
+      activo:'US500', // default — puede personalizarse
+      dir:S.sesgo==='bull'?'LARGO':S.sesgo==='bear'?'CORTO':'RANGO',
+      entry:e,sl:sl,tp:tp,lote:lote,rr:rr,
+      mental:S.mental,
+      context:context,
+      ts:Date.now()
+    };
+    window.TradingHub.emit('PROTOCOL_DONE', payload);
+    saveProtocolState(); // también guardar estado
+
+    // Mostrar link al Journal
+    setTimeout(function(){
+      var existingLink=$id('hub-journal-link');
+      if(existingLink) return;
+      var link=document.createElement('div');
+      link.id='hub-journal-link';
+      link.style.cssText='margin-top:12px;padding:10px 14px;background:rgba(74,184,255,.08);border:1px solid rgba(74,184,255,.25);border-radius:10px;font-size:12px;color:#4ab8ff;text-align:center;cursor:pointer;font-family:var(--mo);letter-spacing:.5px;';
+      link.innerHTML='📒 Datos enviados al Journal — <strong>Abrir Journal</strong>';
+      link.onclick=function(){
+        window.open('trading_journal_v3-8-0-3.html','_blank');
+      };
+      var rescard=$id('rescard');
+      if(rescard && rescard.parentNode) rescard.parentNode.insertBefore(link, rescard.nextSibling);
+    },300);
+  }
+}
+
+function doReset(){
+  if(!confirm('¿Resetear el protocolo completo?'))return;
+  S.sesgo=null;S.mental=null;S.confirmed=false;for(var i=1;i<=6;i++)S.sem[i]=null;
+  $id('sbanner').className='sbanner';$id('sval').textContent='SIN DEFINIR';
+  ['bull','bear','rango'].forEach(function(k){$id('btn-'+k).className='sb-btn'});
+  for(var j=1;j<=6;j++){
+    $id('f'+j).className='fase'+(j===1?' open':' locked');$id('fb'+j).style.width='0%';
+    document.querySelectorAll('#f'+j+' .ci').forEach(function(c){c.classList.remove('on')});
+    document.querySelectorAll('#f'+j+' .sbtn').forEach(function(b){b.classList.remove('sv','sa','sr')});
+    var fn=$id('fn'+j);fn.style.display='none';fn.textContent='';
+    var sc=$id('sc'+j);if(sc)sc.classList.remove('on');
+  }
+  ['oe','osl','otp','olote'].forEach(function(id){$id(id).value=''});
+  $id('rrd').textContent='RR: — · Riesgo: — pts · Objetivo: — pts';
+  document.querySelectorAll('.lbtn').forEach(function(b){b.classList.remove('on')});
+  document.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});
+  $id('mval').textContent='sin registrar';
+  $id('gbarf').style.width='0%';$id('gcount').textContent='FASE 0 / 6';
+  $id('gstop').classList.remove('on');$id('rescard').classList.remove('on');
+  var btn=$id('btngo');btn.disabled=true;btn.textContent='CONFIRMAR ENTRADA';btn.style.background='var(--g)';
+}
+</script>
+
+<!-- Modal de confirmación (reemplaza confirm() nativo) -->
+<div id="confirm-modal" role="dialog" aria-modal="true">
+  <div class="cm-box">
+    <div class="cm-title">PROTOCOLO</div>
+    <div class="cm-msg" id="cm-msg">¿Resetear el protocolo completo?</div>
+    <div class="cm-btns">
+      <button class="cm-btn cm-cancel" onclick="cmResolve(false)">CANCELAR</button>
+      <button class="cm-btn cm-ok" onclick="cmResolve(true)">RESETEAR</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Custom confirm() replacement — compatible con iOS Safari standalone ──
+var _cmResolve = null;
+function cmConfirm(msg) {
+  return new Promise(function(resolve) {
+    _cmResolve = resolve;
+    document.getElementById('cm-msg').textContent = msg || '¿Confirmar?';
+    document.getElementById('confirm-modal').classList.add('open');
+  });
+}
+function cmResolve(result) {
+  document.getElementById('confirm-modal').classList.remove('open');
+  if (_cmResolve) { _cmResolve(result); _cmResolve = null; }
+}
+
+// Fix 3: Save/restore state in localStorage so reload doesn't lose progress
+var STATE_KEY = 'gusano_state_v1';
+var _stateMemory = null;
+
+function saveProtocolState() {
+  var data = {
+    sesgo: S.sesgo,
+    sem: S.sem,
+    mental: S.mental,
+    confirmed: S.confirmed,
+    oe: document.getElementById('oe') ? document.getElementById('oe').value : '',
+    osl: document.getElementById('osl') ? document.getElementById('osl').value : '',
+    otp: document.getElementById('otp') ? document.getElementById('otp').value : '',
+    olote: document.getElementById('olote') ? document.getElementById('olote').value : '',
+    ts: Date.now()
+  };
+  _stateMemory = data;
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function loadProtocolState() {
+  try {
+    var raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return null;
+    var data = JSON.parse(raw);
+    // Only restore if less than 12 hours old (same trading day)
+    if (!data.ts || Date.now() - data.ts > 12 * 60 * 60 * 1000) return null;
+    return data;
+  } catch(e) {
+    return _stateMemory || null;
+  }
+}
+
+function restoreProtocolState() {
+  var data = loadProtocolState();
+  if (!data) return;
+  // Restore S object
+  if (data.sesgo) { S.sesgo = data.sesgo; setSesgo(data.sesgo); setSesgo(data.sesgo); }
+  if (data.sem) {
+    for (var i = 1; i <= 6; i++) {
+      if (data.sem[i]) {
+        // FIX: antes buscaba clases 'sv-target'/'sa-target'/'sr-target' que nunca
+        // existieron en el HTML (los botones solo tienen class="sbtn"), así que este
+        // forEach nunca llamaba a setSem() y el semáforo se guardaba en localStorage
+        // pero jamás se restauraba tras un refresh — el estado visual Y S.sem[i] se
+        // perdían en silencio. Ahora usa el atributo data-val="v|a|r" agregado a cada
+        // botón, que identifica el valor real sin depender de texto ni de posición.
+        var btns = document.querySelectorAll('#f'+i+' .sbtn');
+        btns.forEach(function(b) {
+          if (b.dataset.val === data.sem[i]) {
+            setSem(i, data.sem[i], b);
+          }
+        });
+      }
+    }
+  }
+  if (data.mental) {
+    var mbtns = document.querySelectorAll('.mbtn');
+    mbtns.forEach(function(b) {
+      if (parseInt(b.getAttribute('onclick').match(/\d+/)?.[0]) === data.mental) {
+        setMental(data.mental, b);
+      }
+    });
+  }
+  // Restore input values
+  if (data.oe) document.getElementById('oe').value = data.oe;
+  if (data.osl) document.getElementById('osl').value = data.osl;
+  if (data.otp) document.getElementById('otp').value = data.otp;
+  if (data.olote) { document.getElementById('olote').value = data.olote; syncLote(); }
+  calcRR();
+}
+
+// Patch doReset to use custom modal
+var _origReset = doReset;
+doReset = function() {
+  cmConfirm('¿Resetear el protocolo completo?').then(function(ok) {
+    if (!ok) return;
+    S.sesgo=null;S.mental=null;S.confirmed=false;for(var i=1;i<=6;i++)S.sem[i]=null;
+    $id('sbanner').className='sbanner';$id('sval').textContent='SIN DEFINIR';
+    ['bull','bear','rango'].forEach(function(k){$id('btn-'+k).className='sb-btn'});
+    for(var j=1;j<=6;j++){
+      $id('f'+j).className='fase'+(j===1?' open':' locked');$id('fb'+j).style.width='0%';
+      document.querySelectorAll('#f'+j+' .ci').forEach(function(c){c.classList.remove('on')});
+      document.querySelectorAll('#f'+j+' .sbtn').forEach(function(b){b.classList.remove('sv','sa','sr')});
+      var fn=$id('fn'+j);fn.style.display='none';fn.textContent='';
+      var sc=$id('sc'+j);if(sc)sc.classList.remove('on');
+    }
+    ['oe','osl','otp','olote'].forEach(function(id){$id(id).value=''});
+    $id('rrd').textContent='RR: — · Riesgo: — pts · Objetivo: — pts';
+    document.querySelectorAll('.lbtn').forEach(function(b){b.classList.remove('on')});
+    document.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});
+    $id('mval').textContent='sin registrar';
+    $id('gbarf').style.width='0%';$id('gcount').textContent='FASE 0 / 6';
+    $id('gstop').classList.remove('on');$id('rescard').classList.remove('on');
+    var btn=$id('btngo');btn.disabled=true;btn.textContent='CONFIRMAR ENTRADA';btn.style.background='var(--g)';
+    try { localStorage.removeItem(STATE_KEY); } catch(e) {}
+  });
+};
+
+// Auto-save state on any interaction
+document.addEventListener('click', function() { setTimeout(saveProtocolState, 100); });
+document.addEventListener('input', function() { setTimeout(saveProtocolState, 100); });
+
+// Restore state on load
+restoreProtocolState();
+
+// ══════════════════════════════════════════════════════════════
+// TRADING HUB LAYER — El Gusano Protocolo
+// ══════════════════════════════════════════════════════════════
+(function(){
+// Núcleo compartido (os-core.js) ya definió window.TradingHub — solo lo inicializamos.
+TradingHub.init('gusano', { PROTOCOL_DONE: 'protocol' });
+TradingHub.injectNav('gusano'); // menú flotante para navegar entre las 6 apps
+const hub = TradingHub; // alias local — el resto del archivo usa `hub.on(...)` sin cambios
+
+// Al cargar, leer scores del Anomaly Radar y mostrar en Fase 3
+setTimeout(function(){
+  var anomaly=hub.getAnomalyState();
+  if(!anomaly||!anomaly.scores) return;
+  var scores=anomaly.scores;
+  var maxScore=Math.max.apply(null,Object.values(scores).map(function(v){return v.score||0;}));
+  var maxAsset=Object.entries(scores).find(function(e){return e[1].score===maxScore;});
+  var color=maxScore>=65?'var(--r)':maxScore>=30?'var(--y)':'var(--g)';
+  var f3=document.getElementById('f3');
+  if(!f3||document.getElementById('hub-anomaly-info')) return;
+  var info=document.createElement('div');
+  info.id='hub-anomaly-info';
+  info.style.cssText='margin:8px 14px 4px;padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.2);border-left:3px solid '+color+';font-size:11px;font-family:var(--mo);color:var(--tx);';
+  info.innerHTML='⬡ <strong style="color:'+color+'">Score '+maxScore+'</strong>'+(maxAsset?' — '+maxAsset[0]:'')+' · <span style="color:var(--dm);font-size:10px;">Anomaly Radar hace '+Math.round((Date.now()-anomaly._ts)/1000)+'s</span>';
+  var items=f3.querySelector('.fase-items')||f3.querySelector('.fi-list')||f3;
+  items.appendChild(info);
+},800);
+
+// Indicador HUB
+setTimeout(function(){
+  var wrap=document.querySelector('.wrap');
+  if(!wrap||document.getElementById('hub-dot-g')) return;
+  var dot=document.createElement('div');
+  dot.id='hub-dot-g';
+  dot.style.cssText='position:fixed;top:12px;right:12px;width:8px;height:8px;border-radius:50%;background:#00e5a0;box-shadow:0 0 6px #00e5a0;z-index:999;cursor:pointer;';
+  dot.title='Trading Hub activo';
+  document.body.appendChild(dot);
+},600);
+
+// Escuchar operación cerrada → sugerir reset protocolo
+hub.on('TRADE_CLOSED',function(){
+  console.log('⬡ HUB: Operación cerrada — considera resetear el protocolo');
+});
+})();
+</script>
+</body>
+</html>
