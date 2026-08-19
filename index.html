@@ -164,6 +164,10 @@ body::after{
 .card-journal::after{background:var(--y);}
 .card-journal:hover{border-color:rgba(245,197,24,.3);}
 
+.card-matf::before{background:var(--bl);}
+.card-matf::after{background:var(--bl);}
+.card-matf:hover{border-color:rgba(59,158,255,.3);}
+
 /* Card content */
 .card-top{display:flex;align-items:center;justify-content:space-between;}
 .card-icon{
@@ -425,6 +429,26 @@ body::after{
       </div>
     </a>
 
+    <a class="app-card card-matf" onclick="openApp('matf')" href="#">
+      <div class="card-top">
+        <div class="card-icon" style="background:rgba(59,158,255,.1);">φ</div>
+        <div class="card-open-icon">↗</div>
+      </div>
+      <div>
+        <div class="card-name" style="color:var(--bl)">MA TIMEFRAME CALC</div>
+        <div class="card-desc">Equivalencia de periodos de medias móviles (SMA, WMA, EMA, RMA, PhiHMA) entre timeframes.</div>
+      </div>
+      <div class="card-tags">
+        <span class="tag">SMA/WMA</span>
+        <span class="tag">EMA/RMA</span>
+        <span class="tag">PHIHMA</span>
+      </div>
+      <div class="card-status">
+        <div class="status-dot ready" id="dot-matf"></div>
+        <span id="status-matf">Listo</span>
+      </div>
+    </a>
+
   </div>
 
   <!-- WORKFLOW -->
@@ -480,6 +504,7 @@ const APPS = {
   forex:   { src:'forex_tracker-v4.html',          label:'Forex Monitor',  color:'var(--g)'  },
   gusano:  { src:'el-gusano-protocolo-4-v5.html',  label:'El Gusano',      color:'var(--r)'  },
   journal: { src:'trading_journal_v3-9-0.html',    label:'Journal',        color:'var(--y)'  },
+  matf:    { src:'calculadora-ma-tf/calculadora_ma_tf.html', label:'MA Timeframe Calc', color:'var(--bl)' },
 };
 const openWindows = {};
 
