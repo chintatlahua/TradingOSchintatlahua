@@ -1,0 +1,14 @@
+{
+  "name": "Calculadora MA Timeframes",
+  "short_name": "MA-TF Calc",
+  "description": "Calculadora de equivalencia de medias móviles entre timeframes",
+  "start_url": "./calculadora_ma_tf.html",
+  "display": "standalone",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

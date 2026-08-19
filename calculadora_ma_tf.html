@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Calculadora de Equivalencia de Medias Móviles entre Timeframes</title>
+
+<!-- PWA / iOS "Añadir a pantalla de inicio" -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MA-TF Calc">
+<meta name="theme-color" content="#0e1117">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0e1117;
+    color: #e6e6e6;
+    padding: 32px 16px;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: #9aa4b2; font-size: 13px; margin-bottom: 28px; }
+
+  .card {
+    background: #161b22;
+    border: 1px solid #262c36;
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .field { flex: 1; min-width: 150px; }
+  label { display: block; font-size: 12px; color: #9aa4b2; margin-bottom: 6px; }
+  select, input {
+    width: 100%;
+    background: #0e1117;
+    border: 1px solid #2d333b;
+    color: #e6e6e6;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  select:focus, input:focus { outline: none; border-color: #4f8cff; }
+
+  .swap-btn {
+    background: #21262d;
+    border: 1px solid #2d333b;
+    color: #e6e6e6;
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    height: 42px;
+  }
+  .swap-btn:hover { background: #2d333b; }
+
+  .ma-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .ma-tab {
+    background: #0e1117;
+    border: 1px solid #2d333b;
+    color: #9aa4b2;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ma-tab.active {
+    background: #1c3a63;
+    border-color: #4f8cff;
+    color: #cfe0ff;
+  }
+  .ma-tab:hover:not(.active) { border-color: #4a5260; }
+
+  .badge {
+    display: inline-block;
+    font-size: 10.5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    font-weight: 600;
+  }
+  .badge.exact { background: #123a24; color: #5fd88a; }
+  .badge.approx { background: #3a2f12; color: #e0b95f; }
+  .badge.empirical { background: #2a2340; color: #b79aff; }
+
+  .result {
+    margin-top: 22px;
+    padding: 18px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #17233d, #14181f);
+    border: 1px solid #2c4a7c;
+  }
+  .result .big {
+    font-size: 32px;
+    font-weight: 700;
+    color: #6ea8fe;
+  }
+  .result .label { font-size: 12px; color: #9aa4b2; margin-bottom: 2px;}
+  .result .detail { font-size: 12px; color: #9aa4b2; margin-top: 10px; line-height: 1.6; }
+  .approx-line {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #7d8590;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: center; border-bottom: 1px solid #21262d; }
+  th { color: #9aa4b2; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.tf-name { text-align: left; color: #c9d1d9; }
+  tr:hover td { background: #1c2128; }
+  .hl { color: #6ea8fe; font-weight: 600; }
+
+  .note {
+    font-size: 11.5px;
+    color: #7d8590;
+    line-height: 1.6;
+    margin-top: 10px;
+  }
+  .ma-desc {
+    font-size: 12.5px;
+    color: #9aa4b2;
+    line-height: 1.6;
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    background: #0e1117;
+    border-radius: 8px;
+    border: 1px solid #21262d;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #21262d;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #7d8590; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.exact { background: #5fd88a; }
+  .dot.approx { background: #e0b95f; }
+  .dot.empirical { background: #b79aff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Calculadora de equivalencia de medias móviles entre timeframes</h1>
+  <div class="subtitle">Convierte el periodo de una media móvil entre temporalidades, según el mecanismo real de cada tipo — no por regla de tres.</div>
+
+  <div class="card">
+    <div class="ma-tabs" id="maTabs">
+      <div class="ma-tab active" data-type="sma">SMA</div>
+      <div class="ma-tab" data-type="wma">WMA (lineal)</div>
+      <div class="ma-tab" data-type="wmaphi">WMA-φ (i^1.618)</div>
+      <div class="ma-tab" data-type="ema">EMA</div>
+      <div class="ma-tab" data-type="rma">RMA / SMMA</div>
+      <div class="ma-tab" data-type="phihma">PhiHMA</div>
+    </div>
+
+    <div class="ma-desc" id="maDesc"></div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="dot exact"></span> Exacto — ventana finita (SMA, WMA, WMA-φ)</div>
+      <div class="legend-item"><span class="dot approx"></span> Aprox. por half-life — memoria infinita (EMA, RMA)</div>
+      <div class="legend-item"><span class="dot empirical"></span> Aprox. empírica — híbrido sin fórmula cerrada (PhiHMA)</div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Periodo de origen</label>
+        <input id="nOrigin" type="number" min="1" value="9">
+      </div>
+      <div class="field">
+        <label>Timeframe de origen</label>
+        <select id="tfOrigin">
+          <option value="1">1M</option>
+          <option value="5">5M</option>
+          <option value="15">15M</option>
+          <option value="30">30M</option>
+          <option value="60">1H</option>
+          <option value="120">2H</option>
+          <option value="240" selected>4H</option>
+          <option value="1440">1D</option>
+        </select>
+      </div>
+      <button class="swap-btn" id="swapBtn" title="Invertir">⇄</button>
+      <div class="field">
+        <label>Timeframe destino</label>
+        <select id="tfTarget">
+          <option value="1">1M</option>
+          <option value="5">5M</option>
+          <option value="15" selected>15M</option>
+          <option value="30">30M</option>
+          <option value="60">1H</option>
+          <option value="120">2H</option>
+          <option value="240">4H</option>
+          <option value="1440">1D</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="result">
+      <div class="label">Periodo equivalente en el timeframe destino <span class="badge" id="methodBadge"></span></div>
+      <div class="big" id="exactResult">—</div>
+      <div class="approx-line" id="approxResult"></div>
+      <div class="detail" id="detailResult"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <label style="margin-bottom:10px;">Tabla rápida — periodos comunes convertidos (tipo de MA seleccionado arriba)</label>
+    <table id="quickTable">
+      <thead>
+        <tr><th>Destino</th><th>N=9</th><th>N=20</th><th>N=50</th><th>N=200</th></tr>
+      </thead>
+      <tbody id="quickTableBody"></tbody>
+    </table>
+    <div class="note" id="tableNote"></div>
+  </div>
+</div>
+
+<script>
+const tfNames = {1:"1M",5:"5M",15:"15M",30:"30M",60:"1H",120:"2H",240:"4H",1440:"1D"};
+
+const maInfo = {
+  sma:    { label: "SMA", exact: true, desc: "Ventana finita, peso uniforme. La conversión es exacta: mismo tiempo real cubierto = N × factor de timeframe." },
+  wma:    { label: "WMA lineal", exact: true, desc: "Ventana finita, peso crece linealmente (1,2,3...N). El peso llega a cero en el borde N, igual que la SMA — conversión exacta por N × factor." },
+  wmaphi: { label: "WMA-φ (peso = i^1.618)", exact: true, desc: "Ventana finita con pesos i^φ (más curva hacia lo reciente que la lineal, pero sigue siendo ventana truncada). Escala proporcionalmente con N — conversión exacta por N × factor." },
+  ema:    { label: "EMA", exact: false, desc: "Memoria infinita (alpha = 2/(N+1)), nunca llega a cero. No hay ventana que igualar — se convierte igualando el half-life (tiempo real de decaimiento al 50%)." },
+  rma:    { label: "RMA / SMMA", exact: false, desc: "Memoria infinita igual que la EMA pero con alpha = 1/N (usada en RSI, ATR). Mismo mecanismo de conversión por half-life, constante distinta." },
+  phihma: { label: "PhiHMA", exact: "empirical", desc: "Híbrido: dos núcleos exponenciales ajustados por φ (memoria infinita) + una WMA final de suavizado (ventana finita). No tiene fórmula cerrada exacta. Verificado por simulación: para length ≥ 20 el half-life escala ≈linealmente (ratio ~0.25-0.27, error ~±10%). Con length < 20 el redondeo entero interno (phiLen, sqLen) distorsiona más — el error puede superar 30-40%. Úsalo con confianza en el rango típico (20-200), con cautela por debajo de 15." }
+};
+
+let currentType = 'sma';
+
+function alphaFor(type, n){
+  if (type === 'ema') return 2/(n+1);
+  if (type === 'rma') return 1/n;
+  return null; // ventana finita, no aplica alpha
+}
+
+function halfLifeBars(type, n){
+  const alpha = alphaFor(type, n);
+  return Math.log(0.5)/Math.log(1-alpha);
+}
+
+// Para tipos de ventana finita (sma, wma, wmaphi): conversion exacta N*factor
+// Para tipos de memoria infinita (ema, rma): conversion por half-life
+function exactEquivN(type, nOrigin, tfOrigin, tfTarget){
+  if (maInfo[type].exact === true || maInfo[type].exact === "empirical"){
+    const nTarget = nOrigin * (tfOrigin/tfTarget);
+    return { nTarget, hlMinutes: null };
+  }
+  const hlBarsOrigin = halfLifeBars(type, nOrigin);
+  const hlMinutes = hlBarsOrigin * tfOrigin;
+  const kTargetBars = hlMinutes / tfTarget;
+
+  let nTarget;
+  if (type === 'ema'){
+    const alphaTarget = 1 - Math.pow(0.5, 1/kTargetBars);
+    nTarget = 2/alphaTarget - 1;
+  } else { // rma
+    const alphaTarget = 1 - Math.pow(0.5, 1/kTargetBars);
+    nTarget = 1/alphaTarget;
+  }
+  return { nTarget, hlMinutes };
+}
+
+function fmt(x){
+  if (x < 1) return x.toFixed(2);
+  return x < 10 ? x.toFixed(1) : Math.round(x).toString();
+}
+
+function fmtMinutes(min){
+  if (min >= 1440) return (min/1440).toFixed(2)+" días";
+  if (min >= 60) return (min/60).toFixed(2)+" horas";
+  return Math.round(min)+" min";
+}
+
+function update(){
+  const nOrigin = parseFloat(document.getElementById('nOrigin').value) || 0;
+  const tfOrigin = parseInt(document.getElementById('tfOrigin').value);
+  const tfTarget = parseInt(document.getElementById('tfTarget').value);
+  const info = maInfo[currentType];
+
+  document.getElementById('maDesc').textContent = info.desc;
+
+  const badge = document.getElementById('methodBadge');
+  const phihmaRisky = currentType === 'phihma' && nOrigin > 0 && nOrigin < 20;
+  if (info.exact === true){
+    badge.textContent = 'EXACTO (ventana finita)';
+    badge.className = 'badge exact';
+  } else if (info.exact === "empirical"){
+    badge.textContent = phihmaRisky ? 'APROX. EMPÍRICA (±30-40%, N chico)' : 'APROX. EMPÍRICA (±10%)';
+    badge.className = 'badge empirical';
+  } else {
+    badge.textContent = 'APROX. POR HALF-LIFE';
+    badge.className = 'badge approx';
+  }
+
+  if (nOrigin >= 1){
+    const { nTarget, hlMinutes } = exactEquivN(currentType, nOrigin, tfOrigin, tfTarget);
+
+    document.getElementById('exactResult').textContent =
+      `${info.label} ${fmt(nTarget)}  en ${tfNames[tfTarget]}`;
+
+    if (info.exact === true){
+      document.getElementById('approxResult').textContent = '';
+      document.getElementById('detailResult').innerHTML =
+        `Ventana de ${info.label} ${nOrigin} en ${tfNames[tfOrigin]} cubre ${nOrigin*tfOrigin} min reales.<br>` +
+        `La misma cobertura en ${tfNames[tfTarget]} requiere ${info.label} ${fmt(nTarget)} (cobertura idéntica, sin aproximación).`;
+    } else if (info.exact === "empirical"){
+      document.getElementById('approxResult').textContent = '';
+      const margen = phihmaRisky ? '30-40% (length de origen < 20, alto riesgo por redondeo interno)' : '~10%';
+      document.getElementById('detailResult').innerHTML =
+        `PhiHMA no tiene fórmula cerrada de conversión (mezcla núcleo exponencial + WMA final).<br>` +
+        `N × factor = ${info.label} ${fmt(nTarget)} en ${tfNames[tfTarget]} — margen de error estimado: ${margen}.`;
+    } else {
+      const simple = nOrigin * (tfOrigin/tfTarget);
+      document.getElementById('approxResult').textContent =
+        `Aproximación simple (n × factor de TF): ${info.label} ${fmt(simple)}`;
+      document.getElementById('detailResult').innerHTML =
+        `${info.label} ${nOrigin} en ${tfNames[tfOrigin]} → half-life real ≈ ${fmtMinutes(hlMinutes)}<br>` +
+        `Ese mismo half-life en ${tfNames[tfTarget]} corresponde a ${info.label} ${fmt(nTarget)}.`;
+    }
+  } else {
+    document.getElementById('exactResult').textContent = '— (periodo inválido)';
+    document.getElementById('approxResult').textContent = '';
+    document.getElementById('detailResult').textContent = 'Ingresa un periodo entero ≥ 1.';
+  }
+
+  const periods = [9,20,50,200];
+  const targets = [1,5,15,30,60,120,240,1440];
+  let body = "";
+  targets.forEach(t=>{
+    let row = `<tr><td class="tf-name">${tfNames[t]}${t===tfOrigin?' (origen)':''}</td>`;
+    periods.forEach(p=>{
+      const { nTarget } = exactEquivN(currentType, p, tfOrigin, t);
+      row += `<td class="${t===tfTarget?'hl':''}">${fmt(nTarget)}</td>`;
+    });
+    row += `</tr>`;
+    body += row;
+  });
+  document.getElementById('quickTableBody').innerHTML = body;
+
+  let noteText;
+  if (info.exact === true){
+    noteText = `${info.label}: conversión exacta por cobertura de ventana temporal.`;
+  } else if (info.exact === "empirical"){
+    noteText = `${info.label}: conversión N × factor validada por simulación (~±10%), sin fórmula cerrada exacta.`;
+  } else {
+    noteText = `${info.label}: conversión aproximada por igualación de half-life (velocidad de decaimiento real).`;
+  }
+  document.getElementById('tableNote').textContent = noteText;
+}
+
+document.getElementById('swapBtn').addEventListener('click', ()=>{
+  const o = document.getElementById('tfOrigin');
+  const t = document.getElementById('tfTarget');
+  const tmp = o.value; o.value = t.value; t.value = tmp;
+  update();
+});
+
+['nOrigin','tfOrigin','tfTarget'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', update);
+  document.getElementById(id).addEventListener('change', update);
+});
+
+document.querySelectorAll('.ma-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.ma-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    currentType = tab.dataset.type;
+    update();
+  });
+});
+
+update();
+</script>
+</body>
+</html>
