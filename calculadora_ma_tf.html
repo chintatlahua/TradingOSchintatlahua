@@ -168,6 +168,7 @@
       <div class="ma-tab" data-type="ema">EMA</div>
       <div class="ma-tab" data-type="rma">RMA / SMMA</div>
       <div class="ma-tab" data-type="phihma">PhiHMA</div>
+      <div class="ma-tab" data-type="zlemaphi2">ZLEMA-φ²</div>
     </div>
 
     <div class="ma-desc" id="maDesc"></div>
@@ -175,7 +176,7 @@
     <div class="legend">
       <div class="legend-item"><span class="dot exact"></span> Exacto — ventana finita (SMA, WMA, WMA-φ)</div>
       <div class="legend-item"><span class="dot approx"></span> Aprox. por half-life — memoria infinita (EMA, RMA)</div>
-      <div class="legend-item"><span class="dot empirical"></span> Aprox. empírica — híbrido sin fórmula cerrada (PhiHMA)</div>
+      <div class="legend-item"><span class="dot empirical"></span> Aprox. empírica — híbrido sin fórmula cerrada (PhiHMA, ZLEMA-φ²)</div>
     </div>
 
     <div class="row">
@@ -241,7 +242,8 @@ const maInfo = {
   wmaphi: { label: "WMA-φ (peso = i^1.618)", exact: true, desc: "Ventana finita con pesos i^φ (más curva hacia lo reciente que la lineal, pero sigue siendo ventana truncada). Escala proporcionalmente con N — conversión exacta por N × factor." },
   ema:    { label: "EMA", exact: false, desc: "Memoria infinita (alpha = 2/(N+1)), nunca llega a cero. No hay ventana que igualar — se convierte igualando el half-life (tiempo real de decaimiento al 50%)." },
   rma:    { label: "RMA / SMMA", exact: false, desc: "Memoria infinita igual que la EMA pero con alpha = 1/N (usada en RSI, ATR). Mismo mecanismo de conversión por half-life, constante distinta." },
-  phihma: { label: "PhiHMA", exact: "empirical", desc: "Híbrido: dos núcleos exponenciales ajustados por φ (memoria infinita) + una WMA final de suavizado (ventana finita). No tiene fórmula cerrada exacta. Verificado por simulación: para length ≥ 20 el half-life escala ≈linealmente (ratio ~0.25-0.27, error ~±10%). Con length < 20 el redondeo entero interno (phiLen, sqLen) distorsiona más — el error puede superar 30-40%. Úsalo con confianza en el rango típico (20-200), con cautela por debajo de 15." }
+  phihma: { label: "PhiHMA", exact: "empirical", riskyBelow: 20, typicalError: "±10%", riskyError: "30-40%", desc: "Híbrido: dos núcleos exponenciales ajustados por φ (memoria infinita) + una WMA final de suavizado (ventana finita). No tiene fórmula cerrada exacta. Verificado por simulación: para length ≥ 20 el half-life escala ≈linealmente (ratio ~0.25-0.27, error ~±10%). Con length < 20 el redondeo entero interno (phiLen, sqLen) distorsiona más — el error puede superar 30-40%. Úsalo con confianza en el rango típico (20-200), con cautela por debajo de 15." },
+  zlemaphi2: { label: "ZLEMA-φ²", exact: "empirical", riskyBelow: 35, typicalError: "±15%", riskyError: "20-40%", desc: "EMA aplicada sobre precio pre-corregido por rezago: EmaData = src + (src − src[lag]), con lag = round((length−1)/φ²). El offset fijo de 'lag' bares y el pequeño overshoot que genera rompen la fórmula cerrada de half-life de la EMA normal. Verificado por simulación: para length ≥ 35 el half-life escala ≈linealmente (ratio ~0.142-0.143, error ~±15%). Por debajo de 35 (incluye length=26, un valor típico de MACD) el error puede superar 20-40% — usar con cautela." }
 };
 
 let currentType = 'sma';
@@ -299,12 +301,12 @@ function update(){
   document.getElementById('maDesc').textContent = info.desc;
 
   const badge = document.getElementById('methodBadge');
-  const phihmaRisky = currentType === 'phihma' && nOrigin > 0 && nOrigin < 20;
+  const empiricalRisky = info.exact === "empirical" && nOrigin > 0 && nOrigin < info.riskyBelow;
   if (info.exact === true){
     badge.textContent = 'EXACTO (ventana finita)';
     badge.className = 'badge exact';
   } else if (info.exact === "empirical"){
-    badge.textContent = phihmaRisky ? 'APROX. EMPÍRICA (±30-40%, N chico)' : 'APROX. EMPÍRICA (±10%)';
+    badge.textContent = empiricalRisky ? `APROX. EMPÍRICA (${info.riskyError}, N chico)` : `APROX. EMPÍRICA (${info.typicalError})`;
     badge.className = 'badge empirical';
   } else {
     badge.textContent = 'APROX. POR HALF-LIFE';
@@ -324,7 +326,7 @@ function update(){
         `La misma cobertura en ${tfNames[tfTarget]} requiere ${info.label} ${fmt(nTarget)} (cobertura idéntica, sin aproximación).`;
     } else if (info.exact === "empirical"){
       document.getElementById('approxResult').textContent = '';
-      const margen = phihmaRisky ? '30-40% (length de origen < 20, alto riesgo por redondeo interno)' : '~10%';
+      const margen = empiricalRisky ? `${info.riskyError} (length de origen < ${info.riskyBelow}, alto riesgo por redondeo interno)` : info.typicalError;
       document.getElementById('detailResult').innerHTML =
         `PhiHMA no tiene fórmula cerrada de conversión (mezcla núcleo exponencial + WMA final).<br>` +
         `N × factor = ${info.label} ${fmt(nTarget)} en ${tfNames[tfTarget]} — margen de error estimado: ${margen}.`;
