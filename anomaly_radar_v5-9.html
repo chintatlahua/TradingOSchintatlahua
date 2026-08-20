@@ -1298,10 +1298,13 @@ function updateTicker(){
   const label=document.getElementById('ticker-label');
   const recent=alertHistory.filter(a=>Date.now()-a.ts<30*60*1000);
   if(!recent.length){
-    empty.style.display='inline';ticker.innerHTML='';ticker.appendChild(empty);
+    if(empty) empty.style.display='inline';
+    ticker.innerHTML='';
+    if(empty) ticker.appendChild(empty);
     ticker.classList.remove('running');label.classList.remove('active');label.textContent='ALERTAS';return;
   }
-  empty.style.display='none';label.classList.add('active');label.textContent='⚠ ALERTAS';
+  if(empty) empty.style.display='none';
+  label.classList.add('active');label.textContent='⚠ ALERTAS';
   const items=recent.map(a=>{
     const c=a.severity==='critical'?'var(--danger)':'var(--warn)';
     const cls=a.severity==='critical'?'crit':'warn';
@@ -1309,6 +1312,11 @@ function updateTicker(){
     return`<div class="ticker-item ${cls}"><div class="tick-dot" style="background:${c}"></div><span class="tick-asset">${a.assetName}</span><span class="tick-tf">${a.tf}</span><span class="tick-score" style="color:${c}">${a.score}</span><span style="color:var(--muted2);font-size:9px">— ${a.msg}</span><span class="tick-time">${t}</span></div>`;
   }).join('');
   ticker.innerHTML=items+items;
+  // FIX: sin esto, este innerHTML= borra permanentemente ticker-empty del DOM la
+  // primera vez que hay alertas — la próxima llamada a updateTicker() (para
+  // cualquier activo, en cualquier refresh futuro) ya no lo encuentra y truena
+  // con "null is not an object", tumbando esa operación entera a [SIM].
+  if(empty){ empty.style.display='none'; ticker.appendChild(empty); }
   ticker.classList.add('running');
 }
 
