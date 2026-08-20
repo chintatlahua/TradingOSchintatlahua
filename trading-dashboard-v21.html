@@ -359,6 +359,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
         </div>
       </div>
 
+      <!-- Divergencias — a diferencia de Correlaciones, esto solo dispara cuando se
+           confirma que la relación esperada entre dos activos realmente se rompió,
+           no solo porque un indicador esté en cierto nivel. -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-t" style="margin-bottom:0">Divergencias detectadas</div>
+          <div class="badge" id="divBadge">--</div>
+        </div>
+        <div class="corr-list" id="divList">
+          <div style="color:var(--t3);font-size:10px;text-align:center;padding:12px">Cargando datos…</div>
+        </div>
+      </div>
+
       <!-- 6 mini indicadores del activo -->
       <div class="card" style="padding:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -497,6 +510,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
           <span style="font-size:8px;color:var(--t2)">% · OAS</span>
         </div>
         <div style="font-size:8px;color:var(--t3);margin-top:2px" id="hyLbl">—</div>
+      </div>
+      <!-- Yield Real 10Y (TIPS) — insumo de la divergencia Oro vs Yields Reales -->
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="font-size:8px;color:var(--t3);margin-bottom:3px">YIELD REAL 10Y · TIPS (FRED)</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-family:var(--mono);font-size:16px;font-weight:700" id="realYVal">--</span>
+          <span style="font-size:8px;color:var(--t2)">% · DFII10</span>
+        </div>
+        <div style="font-size:8px;color:var(--t3);margin-top:2px" id="realYLbl">—</div>
       </div>
     </div>
 
@@ -787,6 +809,83 @@ function ip(k, v) {
 // ══════════════════════════════════════════════════════
 //  CORRELACIONES v2 — más granulares, umbral dinámico
 // ══════════════════════════════════════════════════════
+// ── DIVERGENCIAS ──────────────────────────────────────────────────────
+// A diferencia de buildCorrelations() (que solo dice "este nivel debería
+// implicar X"), esto compara la dirección REAL de ambos lados de una
+// relación conocida — solo dispara cuando confirmado que se rompió la
+// relación esperada, no solo cuando un indicador está en cierto nivel.
+function buildDivergences(d) {
+  const divs = [];
+  const dir = (now, prev) => now > prev ? 1 : now < prev ? -1 : 0; // 1=sube, -1=baja, 0=igual
+
+  // ── DXY vs Oro — inversa esperada. Divergencia: ambos suben o ambos bajan ──
+  {
+    const dDxy = dir(d.dxy, d.dxy_prev), dGold = dir(d.gold, d.gold_prev);
+    if (dDxy !== 0 && dGold !== 0 && dDxy === dGold) {
+      divs.push({
+        cls: 'y', ic: '⚠️',
+        cond: `DXY ${dDxy>0?'sube':'baja'} Y Oro ${dGold>0?'sube':'baja'} — se rompió la inversa esperada`,
+        impl: 'Algo más está dominando el oro (refugio, bancos centrales) fuera del dólar — no asumas la relación de manual aquí.',
+        str: 'MODERADA'
+      });
+    }
+  }
+
+  // ── Oro vs Yields Reales — inversa esperada (más fuerte teóricamente que DXY vs Oro) ──
+  {
+    const dReal = dir(d.real_yield_10y, d.real_yield_10y_prev), dGold = dir(d.gold, d.gold_prev);
+    if (dReal !== 0 && dGold !== 0 && dReal === dGold) {
+      divs.push({
+        cls: 'r', ic: '📐',
+        cond: `Yield real ${dReal>0?'sube':'baja'} Y Oro ${dGold>0?'sube':'baja'} — divergencia del motor principal del oro`,
+        impl: 'El oro no está respondiendo al costo de oportunidad real — señal más fuerte que la de DXY, revisar qué lo está moviendo de verdad.',
+        str: 'FUERTE'
+      });
+    }
+  }
+
+  // ── VIX vs S&P 500 — inversa esperada. Divergencia: ambos suben = cobertura creciendo pese a fortaleza ──
+  {
+    const dVix = dir(d.vix, d.vix_prev), dSp = dir(d.sp500_futures, d.sp500_futures_prev);
+    if (dVix > 0 && dSp > 0) {
+      divs.push({
+        cls: 'y', ic: '📉',
+        cond: `VIX sube MIENTRAS S&P también sube`,
+        impl: 'Señal clásica de demanda de cobertura creciendo pese a la fortaleza del precio — a menudo aparece antes de un techo.',
+        str: 'MODERADA'
+      });
+    }
+  }
+
+  // ── High Yield Spread vs VIX — deberían moverse juntos (ambos risk-off). Divergencia: crédito estresado, VIX tranquilo ──
+  {
+    const dHy = dir(d.high_yield_spread, d.high_yield_spread_prev), dVix = dir(d.vix, d.vix_prev);
+    if (dHy > 0 && dVix <= 0) {
+      divs.push({
+        cls: 'r', ic: '🏦',
+        cond: `HY Spread se amplía MIENTRAS VIX se mantiene tranquilo`,
+        impl: 'El mercado de crédito suele anticipar al de acciones — esta divergencia es una alerta temprana genuina, no cosmética.',
+        str: 'FUERTE'
+      });
+    }
+  }
+
+  // ── Curva 2s10s vs Fear & Greed — si la curva empeora (más invertida), el mercado debería ponerse cauteloso ──
+  {
+    const dCurve = dir(d.two_ten_spread, d.two_ten_spread_prev), dFg = dir(d.fear_greed, d.fear_greed_prev);
+    if (d.two_ten_spread < 0 && dCurve < 0 && dFg > 0) {
+      divs.push({
+        cls: 'y', ic: '🌊',
+        cond: `Curva 2s10s empeorando (más invertida) MIENTRAS Fear & Greed sube`,
+        impl: 'El mercado de bonos avisa, las acciones lo ignoran — el bono suele tener razón primero.',
+        str: 'MODERADA'
+      });
+    }
+  }
+
+  return divs;
+}
+
 function buildCorrelations(d) {
   const corrs = [];
   const { vix, fear_greed:fg, dxy, two_ten_spread:sp2, high_yield_spread:hy, ted_spread:ted, wti, gold } = d;
@@ -957,6 +1056,20 @@ function updateUI() {
       <div class="corr-str">${c.str}</div>
     </div>`).join('');
 
+  // ── Divergencias ──
+  const divs = buildDivergences(d);
+  const divAlertCount = divs.filter(c => c.cls === 'r').length;
+  document.getElementById('divBadge').textContent = divs.length===0 ? 'sin divergencias' : divAlertCount + (divAlertCount === 1 ? ' alerta' : ' alertas');
+  document.getElementById('divList').innerHTML = divs.length ? divs.map(c => `
+    <div class="corr-row ${c.cls}">
+      <div class="corr-ic">${c.ic}</div>
+      <div class="corr-body">
+        <div class="corr-cond" style="color:${c.cls==='r'?'var(--red)':c.cls==='g'?'var(--green)':c.cls==='b'?'var(--blue)':'var(--yel)'}">${c.cond}</div>
+        <div class="corr-impl">${c.impl}</div>
+      </div>
+      <div class="corr-str">${c.str}</div>
+    </div>`).join('') : '<div style="color:var(--t3);font-size:10px;text-align:center;padding:12px">Sin divergencias activas — las relaciones esperadas se están cumpliendo</div>';
+
   // ── Indicadores grid ──
   document.getElementById('indAssetLbl').textContent = a.short || a.label;
   document.getElementById('tblAsset').textContent = a.short || a.label;
@@ -999,10 +1112,14 @@ function updateUI() {
   const spRow = document.getElementById('spreadRow');
   const hyEl  = document.getElementById('hyVal');
   const hyLbl = document.getElementById('hyLbl');
+  const realYEl  = document.getElementById('realYVal');
+  const realYLbl = document.getElementById('realYLbl');
   if (y10El) y10El.textContent = fv(d.y10, 2);
   if (y2El)  y2El.textContent  = fv(d.y2, 2);
   if (hyEl)  hyEl.textContent  = fv(d.high_yield_spread, 2);
   if (hyLbl) hyLbl.textContent = d.high_yield_spread < 3.5 ? '✓ Crédito sano' : d.high_yield_spread < 4.5 ? '◆ Crédito normal' : d.high_yield_spread < 5.5 ? '⚠ Spreads amplios' : '⛔ Estrés crediticio';
+  if (realYEl) realYEl.textContent = fv(d.real_yield_10y, 2);
+  if (realYLbl) realYLbl.textContent = d.real_yield_10y < 0 ? '✓ Favorable para oro' : d.real_yield_10y < 1.5 ? '◆ Neutral para oro' : '⚠ Presión bajista sobre oro';
   if (spEl && d.two_ten_spread != null) {
     spEl.textContent = (d.two_ten_spread > 0 ? '+' : '') + fv(d.two_ten_spread, 2) + '%';
     spEl.style.color = d.two_ten_spread > 0 ? 'var(--green)' : d.two_ten_spread > -.25 ? 'var(--yel)' : 'var(--red)';
@@ -1112,7 +1229,7 @@ function renderDataQuality(yfOk, fredOk, fgOk) {
   if (!bar) return;
   bar.innerHTML = `
     <span class="dq-badge ${yfOk?'dq-ok':'dq-err'}">${yfOk?'✓':'✗'} YF</span>
-    <span class="dq-badge ${fredOk>=3?'dq-ok':fredOk>=1?'dq-warn':'dq-err'}">${fredOk>=3?'✓':fredOk>=1?'~':'✗'} FRED ${fredOk}/5</span>
+    <span class="dq-badge ${fredOk>=4?'dq-ok':fredOk>=1?'dq-warn':'dq-err'}">${fredOk>=4?'✓':fredOk>=1?'~':'✗'} FRED ${fredOk}/6</span>
     <span class="dq-badge ${fgOk?'dq-ok':'dq-warn'}">${fgOk?'✓':'~'} F&G</span>
   `;
 }
@@ -1263,18 +1380,24 @@ async function doFetch() {
       yfQuote('NQ=F',    ['NQ%3DF']),              // Nasdaq futuro
       yfQuote('BTC-USD', []),                      // Bitcoin
     ]);
-    const [hyF, tedF, crbF, eiaF, dgs2F] = await Promise.allSettled([
+    const [hyF, tedF, crbF, eiaF, dgs2F, realYF] = await Promise.allSettled([
       fredLatest('BAMLH0A0HYM2'),  // HY spread — ICE BofA US High Yield OAS
       fredLatest('DPRIME'),          // Prime Rate proxy (TEDRATE discontinuado en 2023)
       fredLatest('PPIACO'),          // Producer Price Index (proxy CRB)
       fredLatest('WCRSTUS1'),        // EIA: inventarios petróleo crudo US
       fredLatest('DGS2'),            // 2Y Treasury yield — dato real, reemplaza a '^TWO'
+      fredLatest('DFII10'),          // Yield REAL a 10 años (TIPS) — para divergencia Oro vs Yields Reales
     ]);
 
-    let fearGreed = 50, fgOk = false;
+    let fearGreed = 50, fearGreedPrev = 50, fgOk = false;
     try {
-      const fr = await fetchWithProxy('https://api.alternative.me/fng/?limit=1');
-      if (fr && fr.ok) { const fj = await fr.json(); fearGreed = parseInt(fj?.data?.[0]?.value || '50', 10); fgOk = true; }
+      const fr = await fetchWithProxy('https://api.alternative.me/fng/?limit=2');
+      if (fr && fr.ok) {
+        const fj = await fr.json();
+        fearGreed = parseInt(fj?.data?.[0]?.value || '50', 10);
+        fearGreedPrev = parseInt(fj?.data?.[1]?.value ?? fj?.data?.[0]?.value ?? '50', 10);
+        fgOk = true;
+      }
     } catch(e) {}
 
     const get = q => q.status === 'fulfilled' ? q.value : null;
@@ -1282,25 +1405,31 @@ async function doFetch() {
           esD=get(esQ),   t10D=get(t10Q),  goldD=get(goldQ),
           eurD=get(eurQ), nqD=get(nqQ),    btcD=get(btcQ);
     const getFred = q => q.status === 'fulfilled' ? q.value : null;
-    const hyFred=getFred(hyF), tedFred=getFred(tedF), crbFred=getFred(crbF), eiaFred=getFred(eiaF), dgs2Fred=getFred(dgs2F);
+    const hyFred=getFred(hyF), tedFred=getFred(tedF), crbFred=getFred(crbF), eiaFred=getFred(eiaF), dgs2Fred=getFred(dgs2F), realYFred=getFred(realYF);
 
     let vix       = vixD?.price   ?? 20;
-    const vixPrev = vixD?.prev    ?? vix * .97;
+    const vixPrev = vixD?.prev    ?? vix; // FIX: antes .97 (siempre "sube" con dato faltante, sesgando divergencias)
     let dxy       = dxyD?.price   ?? 104;
-    const dxyPrev = dxyD?.prev    ?? dxy * .995;
+    const dxyPrev = dxyD?.prev    ?? dxy; // FIX: antes .995 (mismo problema)
     let wti       = wtiD?.price   ?? 72;
     const wtiPrev = wtiD?.prev    ?? wti * .99;
     const brent   = brentD?.price ?? wti + 3.5;
     let sp500f  = esD?.price    ?? 5800;
+    const sp500fPrev = esD?.prev ?? sp500f; // FIX: antes .999 (mismo problema)
     const y10     = t10D?.price != null ? +(t10D.price / 10).toFixed(3) : 4.3;
+    const y10Prev = t10D?.prev  != null ? +(t10D.prev  / 10).toFixed(3) : y10;
     // DGS2 de FRED ya viene en % directo (no ×10 como el crudo de Yahoo para ^TNX/^FVX/^TYX)
     const y2      = dgs2Fred?.value != null ? +dgs2Fred.value.toFixed(3) : 4.05;
+    const y2Prev  = dgs2Fred?.prev  != null ? +dgs2Fred.prev.toFixed(3)  : y2;
+    // Yield real a 10 años (TIPS) — para la divergencia Oro vs Yields Reales
+    const realYield10     = realYFred?.value != null ? +realYFred.value.toFixed(3) : (y10 - 2.3);
+    const realYield10Prev = realYFred?.prev  != null ? +realYFred.prev.toFixed(3)  : realYield10;
     let gold    = goldD?.price  ?? 2100;
-    const goldPrev= goldD?.prev   ?? gold * .998;
+    const goldPrev= goldD?.prev   ?? gold; // FIX: antes .998 (mismo problema)
     let eurusd  = eurD?.price   ?? 1.08;
     let nqF     = nqD?.price    ?? 20000;
     let btc     = btcD?.price   ?? 62000;
-    const btcPrev = btcD?.prev    ?? btc * .99;
+    const btcPrev = btcD?.prev    ?? btc; // FIX: antes .99 (mismo problema)
 
     // Aplicar precio real de Pepperstone donde el bridge respondió — sobreescribe
     // solo el nivel actual (el bridge no da "prev", así que el cambio % sigue
@@ -1316,6 +1445,7 @@ async function doFetch() {
     if (bDxy    != null) { dxy    = bDxy;    bridgeOk++; }
     if (bWti    != null) { wti    = bWti;    bridgeOk++; }
     const spread210 = +(y10 - y2).toFixed(3);
+    const spread210Prev = +(y10Prev - y2Prev).toFixed(3);
     const hySpread  = hyFred?.value ?? 4.2;
     // DPRIME = Prime Rate (~7.5%). TED Spread original medía T-Bill vs LIBOR (0.10–0.50 normal).
     // Proxy: Prime − 3.0 (diferencial histórico Prime vs T-Bill) → rango similar 0.10–0.60
@@ -1339,7 +1469,7 @@ async function doFetch() {
     // Esta curva refleja mejor la correlación real VIX-PCR observada históricamente
     const pcRatio = +(Math.min(1.20, Math.max(0.55, 0.60 + (vix / 40) * 0.55))).toFixed(2);
 
-    const fredOk = [hyFred, tedFred, crbFred, eiaFred, dgs2Fred].filter(Boolean).length;
+    const fredOk = [hyFred, tedFred, crbFred, eiaFred, dgs2Fred, realYFred].filter(Boolean).length;
     const yfOk   = !!vixD;
 
     // Si Yahoo falló completamente (sin ningún dato), caer al fallback demo
@@ -1350,18 +1480,18 @@ async function doFetch() {
       dxy, dxy_prev:dxyPrev, dxy_closes:dxyD?.closes||[],
       wti, wti_prev:wtiPrev, brent,
       gold, gold_prev:goldPrev, gold_closes:goldD?.closes||[],
-      eurusd, nq_futures:nqF, sp500_futures:sp500f, btc, btc_prev:btcPrev,
-      high_yield_spread:hySpread, put_call_ratio:pcRatio,
-      fear_greed:fearGreed, two_ten_spread:spread210,
+      eurusd, nq_futures:nqF, sp500_futures:sp500f, sp500_futures_prev:sp500fPrev, btc, btc_prev:btcPrev,
+      high_yield_spread:hySpread, high_yield_spread_prev:(hyFred?.prev ?? hySpread), put_call_ratio:pcRatio,
+      fear_greed:fearGreed, fear_greed_prev:fearGreedPrev, two_ten_spread:spread210, two_ten_spread_prev:spread210Prev,
       crb:crbVal, eia_inventories:eiaInv, ted_spread:tedSpread,
-      y10, y2, fredOk, yfOk, fgOk, timestamp:new Date().toISOString(),
+      y10, y2, real_yield_10y:realYield10, real_yield_10y_prev:(realYFred?.prev ?? realYield10), fredOk, yfOk, fgOk, timestamp:new Date().toISOString(),
     };
 
     const fredTag = fredOk >= 2 ? ` · HY:${hySpread.toFixed(2)}% · PRIME SPR:${tedSpread.toFixed(3)}%` : '';
     document.getElementById('sbarTxt').textContent =
-      `🟢 Yahoo Finance + FRED (${fredOk}/5)${bridgeOk?' + Pepperstone ('+bridgeOk+'/8)':''} · VIX:${vix.toFixed(1)} · DXY:${dxy.toFixed(1)} · WTI:$${wti.toFixed(1)} · Gold:$${Math.round(gold)} · ES:${Math.round(sp500f)}${fredTag} — ${new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'})} ET`;
+      `🟢 Yahoo Finance + FRED (${fredOk}/6)${bridgeOk?' + Pepperstone ('+bridgeOk+'/8)':''} · VIX:${vix.toFixed(1)} · DXY:${dxy.toFixed(1)} · WTI:$${wti.toFixed(1)} · Gold:$${Math.round(gold)} · ES:${Math.round(sp500f)}${fredTag} — ${new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'})} ET`;
     document.getElementById('sbarTxt').style.color = 'var(--green)';
-    document.getElementById('srcBadge').textContent = `Yahoo + FRED (${fredOk}/5)${bridgeOk?' + PEP ('+bridgeOk+'/8)':''}`;
+    document.getElementById('srcBadge').textContent = `Yahoo + FRED (${fredOk}/6)${bridgeOk?' + PEP ('+bridgeOk+'/8)':''}`;
     document.getElementById('updTime').textContent  = new Date().toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'}) + ' ET';
     renderDataQuality(yfOk, fredOk, fgOk);
     updateUI();
