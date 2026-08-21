@@ -121,7 +121,20 @@
     try{
       const r = await fetch(url, {...opts, signal: ctrl.signal});
       clearTimeout(t);
-      return r.ok ? r : null;
+      if (!r.ok) return null;
+      // FIX: r.ok solo confirma el código HTTP (200-299) — no que el CONTENIDO sea
+      // válido. Varios proxies CORS devuelven una página de error/límite con status
+      // 200 (no un error de red real), que antes se aceptaba como "éxito" y detenía
+      // ahí mismo toda la cascada de respaldo — el fallo real solo se descubría
+      // después, cuando el llamador intentaba .json() y ya era tarde para probar
+      // otro proxy. Ahora se valida el contenido aquí, antes de aceptar la respuesta,
+      // así el resto de proxies sí se intentan cuando uno devuelve basura.
+      const text = await r.text();
+      try{ JSON.parse(text); }
+      catch(parseErr){ return null; } // contenido inválido — seguir con el siguiente proxy
+      // Reconstruir un Response nuevo con el texto ya validado, para que el llamador
+      // pueda seguir usando .json() normalmente — mismo contrato de siempre.
+      return new Response(text, { status: r.status, headers: r.headers });
     }catch(e){
       clearTimeout(t);
       return null;
