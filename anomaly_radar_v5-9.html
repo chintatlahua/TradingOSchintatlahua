@@ -747,6 +747,17 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
     </div>
   </div>
 
+  <!-- ROW 4 — Divergencias: RSI/MACD-Hist/CCI/MFI/OBV vs precio. Panel separado del
+       score principal a propósito (ver nota en el motor arriba de detect()) —
+       mide agotamiento de momentum, algo que los 5 métodos estadísticos de arriba
+       no capturan (pueden aparecer en movimientos sin ningún salto anómalo). -->
+  <div style="margin-top:12px;margin-bottom:.85rem">
+    <div class="card">
+      <div class="card-title">Divergencia (RSI/MACD/CCI/MFI/OBV) <span class="card-badge badge-tf" id="badge-divergence">—</span></div>
+      <div id="divergence-panel"><div class="no-data">Selecciona un activo</div></div>
+    </div>
+  </div>
+
   <div class="section-label">REGISTRO DEL SISTEMA</div>
   <div class="log-panel"><div class="log-entries" id="log-panel"></div></div>
 </div>
@@ -1542,6 +1553,202 @@ function detectStreaks(anomalies, maxGap=2){
   return {streaks, maxStreakLen: Math.max(...streaks.map(s=>s.length))};
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// MOTOR DE DIVERGENCIAS — RSI/MACD-Hist/CCI/MFI/OBV vs precio, 4 tipos
+// (Regular Alcista/Bajista, Oculta Alcista/Bajista), corridos como 4 stacks
+// INDEPENDIENTES (nunca mezclados — Regular avisa reversión, Oculta confirma
+// continuación, son señales opuestas en significado). Solo se muestra UNA señal
+// activa a la vez por activo — la más reciente y de mayor score entre las 4 —
+// igual que el resto de Anomaly Radar da un resultado claro, no cuatro paneles
+// compitiendo por tu atención. Adaptado del "Divergence Stack Scanner" (Pine
+// Script v6) que Rafael compartió — sin el módulo SMT (comparación contra un
+// símbolo correlacionado, es un concepto distinto) ni el dibujo sobre gráfico
+// de velas (Anomaly Radar es un dashboard de estadísticas, no un charting tool).
+// ═══════════════════════════════════════════════════════════════════════
+
+function divCalcRSI(closes, period=14){
+  const rsi=new Array(closes.length).fill(null);
+  if(closes.length<period+1) return rsi;
+  let avgGain=0,avgLoss=0;
+  for(let i=1;i<=period;i++){const d=closes[i]-closes[i-1];if(d>=0)avgGain+=d;else avgLoss-=d;}
+  avgGain/=period;avgLoss/=period;
+  rsi[period]=avgLoss===0?100:100-100/(1+avgGain/avgLoss);
+  for(let i=period+1;i<closes.length;i++){
+    const d=closes[i]-closes[i-1],gain=d>0?d:0,loss=d<0?-d:0;
+    avgGain=(avgGain*(period-1)+gain)/period;avgLoss=(avgLoss*(period-1)+loss)/period;
+    rsi[i]=avgLoss===0?100:100-100/(1+avgGain/avgLoss);
+  }
+  return rsi;
+}
+function divEma(series,period){
+  const out=new Array(series.length).fill(null);const k=2/(period+1);let e=null;
+  for(let i=0;i<series.length;i++){if(series[i]==null)continue;e=e===null?series[i]:series[i]*k+e*(1-k);out[i]=e;}
+  return out;
+}
+function divEmaLast(series,period){
+  const k=2/(period+1);let e=series[0];
+  for(let i=1;i<series.length;i++)e=series[i]*k+e*(1-k);
+  return e;
+}
+function divCalcMACDHist(closes,fast=12,slow=26,signal=9){
+  const emaFast=divEma(closes,fast),emaSlow=divEma(closes,slow);
+  const macdLine=closes.map((_,i)=>(emaFast[i]!=null&&emaSlow[i]!=null)?emaFast[i]-emaSlow[i]:null);
+  const signalLine=divEma(macdLine.map(v=>v==null?0:v),signal);
+  return macdLine.map((v,i)=>(v!=null&&signalLine[i]!=null)?v-signalLine[i]:null);
+}
+function divCalcCCI(highs,lows,closes,period=20){
+  const tp=closes.map((c,i)=>(highs[i]+lows[i]+c)/3);
+  const out=new Array(closes.length).fill(null);
+  for(let i=period-1;i<tp.length;i++){
+    const seg=tp.slice(i-period+1,i+1);
+    const sma=seg.reduce((a,b)=>a+b,0)/period;
+    const meanDev=seg.reduce((a,b)=>a+Math.abs(b-sma),0)/period;
+    out[i]=meanDev===0?0:(tp[i]-sma)/(0.015*meanDev);
+  }
+  return out;
+}
+function divCalcMFI(highs,lows,closes,volumes,period=14){
+  const tp=closes.map((c,i)=>(highs[i]+lows[i]+c)/3);
+  const rawMF=tp.map((t,i)=>t*(volumes[i]||0));
+  const out=new Array(closes.length).fill(null);
+  for(let i=period;i<tp.length;i++){
+    let posMF=0,negMF=0;
+    for(let j=i-period+1;j<=i;j++){if(tp[j]>tp[j-1])posMF+=rawMF[j];else if(tp[j]<tp[j-1])negMF+=rawMF[j];}
+    out[i]=negMF===0?100:100-100/(1+posMF/negMF);
+  }
+  return out;
+}
+function divCalcOBV(closes,volumes){
+  const out=new Array(closes.length).fill(0);
+  for(let i=1;i<closes.length;i++){
+    if(closes[i]>closes[i-1])out[i]=out[i-1]+(volumes[i]||0);
+    else if(closes[i]<closes[i-1])out[i]=out[i-1]-(volumes[i]||0);
+    else out[i]=out[i-1];
+  }
+  return out;
+}
+function divFindPivots(series,lookback=5){
+  const highs=[],lows=[];
+  for(let i=lookback;i<series.length-lookback;i++){
+    if(series[i]==null)continue;
+    let isHigh=true,isLow=true;
+    for(let j=i-lookback;j<=i+lookback;j++){
+      if(j===i||series[j]==null)continue;
+      if(series[j]>=series[i])isHigh=false;
+      if(series[j]<=series[i])isLow=false;
+    }
+    if(isHigh)highs.push({i,v:series[i]});
+    if(isLow)lows.push({i,v:series[i]});
+  }
+  return{highs,lows};
+}
+function divCheckType(pricePivots,oscSeries,type){
+  const results=[];
+  const pivots=type.includes('Bull')?pricePivots.lows:pricePivots.highs;
+  for(let k=1;k<pivots.length;k++){
+    const prev=pivots[k-1],cur=pivots[k];
+    const oscPrev=oscSeries[prev.i],oscCur=oscSeries[cur.i];
+    if(oscPrev==null||oscCur==null)continue;
+    let fires=false;
+    if(type==='regularBull')fires=cur.v<prev.v&&oscCur>oscPrev;
+    if(type==='regularBear')fires=cur.v>prev.v&&oscCur<oscPrev;
+    if(type==='hiddenBull')fires=cur.v>prev.v&&oscCur<oscPrev;
+    if(type==='hiddenBear')fires=cur.v<prev.v&&oscCur>oscPrev;
+    if(fires)results.push({pivotIndex:cur.i,prevIndex:prev.i});
+  }
+  return results;
+}
+function divStdev(arr){
+  const m=arr.reduce((a,b)=>a+b,0)/arr.length;
+  return Math.sqrt(arr.reduce((a,b)=>a+(b-m)**2,0)/arr.length);
+}
+function divScore(stack,maxStack,closes,pivotIndex,prevPivotIndex,direction){
+  const stackScore=(stack/maxStack)*100;
+  const returns=[];for(let i=1;i<closes.length;i++)returns.push((closes[i]-closes[i-1])/closes[i-1]);
+  const vol=divStdev(returns.slice(-50))||0.0001;
+  const swingMove=Math.abs(closes[pivotIndex]-closes[prevPivotIndex])/closes[prevPivotIndex];
+  const swingScore=Math.min(100,Math.max(0,(swingMove/vol-2)*15));
+  const emaFast=divEmaLast(closes,34),emaSlow=divEmaLast(closes,89);
+  const trendDown=emaFast<emaSlow;
+  const trendScore=(direction===-1&&trendDown)||(direction===1&&!trendDown)?100:60;
+  const barsAgo=closes.length-1-pivotIndex;
+  const distScore=Math.max(0,100-barsAgo*3);
+  const raw=stackScore*0.40+swingScore*0.25+trendScore*0.20+distScore*0.15;
+  return Math.round(Math.max(0,Math.min(100,raw)));
+}
+function divTier(score){
+  if(score>=85)return'PRIME';if(score>=65)return'READY';if(score>=40)return'WATCH';return'NOISE';
+}
+
+// Estado de la señal activa por activo — persiste entre refreshes, igual que
+// alertHistory. Una señal activa se sigue marcando hasta que se invalide (precio
+// rompe el nivel del pivote en contra) o expire (pasan demasiadas velas sin
+// confirmación), no es un flash de un instante.
+let activeDivergence = {}; // { assetId: {type, direction, stack, maxStack, score, tier, pivotIndex, pivotPrice, invalidated, ts} }
+
+function computeDivergenceStack(closes,highs,lows,volumes){
+  const rsi=divCalcRSI(closes,14);
+  const macdHist=divCalcMACDHist(closes,12,26,9);
+  const cci=divCalcCCI(highs,lows,closes,20);
+  const validVol=volumes&&volumes.filter(v=>v!=null&&!isNaN(v)&&v>0).length>=volumes.length*0.8;
+  const mfi=validVol?divCalcMFI(highs,lows,closes,volumes,14):null;
+  const obv=validVol?divCalcOBV(closes,volumes):null;
+
+  const pricePivots=divFindPivots(closes,5);
+  const oscillators={rsi,macdHist,cci};
+  if(mfi)oscillators.mfi=mfi;
+  if(obv)oscillators.obv=obv;
+  const maxStack=Object.keys(oscillators).length;
+
+  const types=['regularBull','regularBear','hiddenBull','hiddenBear'];
+  const allResults={};
+  for(const type of types){
+    const perOsc={};
+    for(const[name,series]of Object.entries(oscillators))perOsc[name]=divCheckType(pricePivots,series,type);
+    const lastPivots=type.includes('Bull')?pricePivots.lows:pricePivots.highs;
+    if(lastPivots.length<2){allResults[type]={stack:0,maxStack,pivotIndex:null};continue;}
+    const lastPivotIndex=lastPivots[lastPivots.length-1].i;
+    const prevPivotIndex=lastPivots[lastPivots.length-2].i;
+    let stack=0;
+    for(const name of Object.keys(oscillators))if(perOsc[name].some(r=>r.pivotIndex===lastPivotIndex))stack++;
+    allResults[type]={stack,maxStack,pivotIndex:stack>0?lastPivotIndex:null,prevPivotIndex};
+  }
+  return allResults;
+}
+
+function updateDivergenceState(assetId,closes,highs,lows,volumes){
+  if(!closes||closes.length<40){activeDivergence[assetId]=null;return;} // muy poco historial para pivotes confiables
+  const stacks=computeDivergenceStack(closes,highs,lows,volumes);
+  const directionOf={regularBull:1,regularBear:-1,hiddenBull:1,hiddenBear:-1}; // dirección del pivote de precio usado
+
+  // De las 4, encontrar la de mayor score con stack>=2 (al menos 2 osciladores de acuerdo,
+  // 1 solo osciland sería demasiado ruido para considerarse una señal real)
+  let best=null;
+  for(const[type,r]of Object.entries(stacks)){
+    if(r.stack<2||r.pivotIndex==null)continue;
+    const dir=directionOf[type];
+    const score=divScore(r.stack,r.maxStack,closes,r.pivotIndex,r.prevPivotIndex,dir);
+    if(!best||score>best.score)best={type,direction:dir,stack:r.stack,maxStack:r.maxStack,score,pivotIndex:r.pivotIndex,pivotPrice:closes[r.pivotIndex]};
+  }
+
+  const prevActive=activeDivergence[assetId];
+  if(best){
+    // Nueva señal encontrada — reemplaza cualquier señal activa anterior si es más
+    // reciente o de mayor score, igual que el 'activeDir' del script original.
+    if(!prevActive||prevActive.pivotIndex!==best.pivotIndex||best.score>=prevActive.score){
+      activeDivergence[assetId]={...best,tier:divTier(best.score),invalidated:false,followed:false,ts:Date.now()};
+    }
+  }
+  // Verificar invalidación/objetivo de la señal activa existente contra el precio actual
+  const active=activeDivergence[assetId];
+  if(active&&!active.invalidated&&!active.followed){
+    const lastClose=closes[closes.length-1];
+    const swingSize=Math.abs(active.pivotPrice*0.003); // margen de invalidación ~0.3%
+    if(active.direction===1&&lastClose<active.pivotPrice-swingSize)active.invalidated=true;
+    if(active.direction===-1&&lastClose>active.pivotPrice+swingSize)active.invalidated=true;
+  }
+}
+
 function detect(r, assetId, volumes=null){
   const methodEl=document.getElementById('method');
   const sensEl=document.getElementById('sensitivity');
@@ -1623,11 +1830,17 @@ async function fetchYahooFinance(asset,tf){
     const result=d?.chart?.result?.[0];
     if(!result) throw new Error(`Yahoo sin datos para ${asset.display}`);
     const timestamps=result.timestamp,closes=result.indicators?.quote?.[0]?.close;
+    const highsRaw=result.indicators?.quote?.[0]?.high,lowsRaw=result.indicators?.quote?.[0]?.low;
     if(!timestamps||!closes) throw new Error(`Yahoo datos vacíos`);
-    let pairs=timestamps.map((t,i)=>({datetime:new Date(t*1000).toISOString().slice(0,16).replace('T',' '),close:closes[i]})).filter(p=>p.close!=null);
+    let pairs=timestamps.map((t,i)=>({datetime:new Date(t*1000).toISOString().slice(0,16).replace('T',' '),close:closes[i],high:highsRaw?.[i]??closes[i],low:lowsRaw?.[i]??closes[i]})).filter(p=>p.close!=null);
     if(is4h&&pairs.length>=4){
       const grouped=[];
-      for(let i=3;i<pairs.length;i+=4)grouped.push(pairs[i]);
+      // Agregación correcta al reconstruir 4H desde 1H: high=máximo de las 4, low=mínimo
+      // de las 4, close=la última — antes solo se tomaba el close, high/low quedaban mal
+      for(let i=3;i<pairs.length;i+=4){
+        const window=pairs.slice(i-3,i+1);
+        grouped.push({datetime:pairs[i].datetime,close:pairs[i].close,high:Math.max(...window.map(w=>w.high)),low:Math.min(...window.map(w=>w.low))});
+      }
       pairs=grouped;
     }
     return pairs;
@@ -1637,7 +1850,7 @@ async function fetchYahooFinance(asset,tf){
 }
 
 function pairsToReturns(pairs){
-  const returns=[],dates=[],closes=[];
+  const returns=[],dates=[],closes=[],highs=[],lows=[];
   let prevClose=null;
   for(let i=0;i<pairs.length;i++){
     const c=pairs[i].close;
@@ -1646,19 +1859,21 @@ function pairsToReturns(pairs){
       returns.push((c-prevClose)/prevClose);
       dates.push(pairs[i].datetime);
       closes.push(c);
+      highs.push(pairs[i].high??c);
+      lows.push(pairs[i].low??c);
     }
     prevClose=c;
   }
-  return{returns,dates,closes};
+  return{returns,dates,closes,highs,lows};
 }
 function tdValsToReturns(vals){
-  const raw=vals.map(v=>({close:parseFloat(v.close),datetime:v.datetime,volume:v.volume!=null?parseFloat(v.volume):null})).filter(v=>!isNaN(v.close)&&v.close>0);
-  const returns=[],dates=[],closes=[],volumes=[];
+  const raw=vals.map(v=>({close:parseFloat(v.close),high:parseFloat(v.high),low:parseFloat(v.low),datetime:v.datetime,volume:v.volume!=null?parseFloat(v.volume):null})).filter(v=>!isNaN(v.close)&&v.close>0);
+  const returns=[],dates=[],closes=[],volumes=[],highs=[],lows=[];
   for(let i=1;i<raw.length;i++){
     const ret=(raw[i].close-raw[i-1].close)/raw[i-1].close;
-    if(isFinite(ret)){returns.push(ret);dates.push(raw[i].datetime);closes.push(raw[i].close);volumes.push(raw[i].volume);}
+    if(isFinite(ret)){returns.push(ret);dates.push(raw[i].datetime);closes.push(raw[i].close);volumes.push(raw[i].volume);highs.push(isNaN(raw[i].high)?raw[i].close:raw[i].high);lows.push(isNaN(raw[i].low)?raw[i].close:raw[i].low);}
   }
-  return{returns,closes,dates,volumes};
+  return{returns,closes,dates,volumes,highs,lows};
 }
 
 let yahooPI=null;
@@ -1723,6 +1938,45 @@ function buildContextAlerts(score){
   return alerts;
 }
 function renderContextAlerts(score){document.getElementById('context-alerts').innerHTML=buildContextAlerts(score).map(a=>`<div class="ctx-item ${a.cls}"><div class="ctx-dot" style="background:${a.c}"></div><div><div class="ctx-text">${a.txt}</div><div class="ctx-source">${a.src}</div></div></div>`).join('');}
+
+const DIV_TYPE_LABELS={
+  regularBull:{name:'Regular Alcista',meaning:'Posible reversión al alza — el precio hace un mínimo más bajo, pero el momentum ya no lo confirma.',color:'var(--safe)'},
+  regularBear:{name:'Regular Bajista',meaning:'Posible reversión a la baja — el precio hace un máximo más alto, pero el momentum ya no lo confirma.',color:'var(--danger)'},
+  hiddenBull:{name:'Oculta Alcista',meaning:'Confirma que la tendencia alcista sigue viva — el retroceso no logró debilitar el momentum real.',color:'var(--tf-color)'},
+  hiddenBear:{name:'Oculta Bajista',meaning:'Confirma que la tendencia bajista sigue viva — el rebote no logró debilitar el momentum real.',color:'var(--tf-color)'},
+};
+const DIV_TIER_COLORS={NOISE:'var(--muted)',WATCH:'var(--warn)',READY:'var(--safe)',PRIME:'var(--danger)'};
+
+function renderDivergencePanel(id){
+  const panel=document.getElementById('divergence-panel');
+  const badge=document.getElementById('badge-divergence');
+  const active=activeDivergence[id];
+  if(!panel)return;
+  if(!active){
+    panel.innerHTML='<div class="no-data">Sin divergencia activa — ninguna de las 4 combinaciones (Regular/Oculta × Alcista/Bajista) tiene al menos 2 osciladores de acuerdo en el pivote más reciente.</div>';
+    if(badge)badge.textContent='sin señal';
+    return;
+  }
+  const info=DIV_TYPE_LABELS[active.type];
+  const tierColor=DIV_TIER_COLORS[active.tier]||'var(--muted)';
+  const lifecycleText=active.invalidated?'⛔ Invalidada — el precio rompió el nivel del pivote':'✓ Activa';
+  const barsAgo=Math.round((Date.now()-active.ts)/60000); // aproximado, en minutos desde que se detectó
+  if(badge)badge.textContent=`${active.tier} · ${active.stack}/${active.maxStack}`;
+  panel.innerHTML=`
+    <div class="ctx-item" style="border-left-color:${info.color};opacity:${active.invalidated?0.55:1}">
+      <div class="ctx-dot" style="background:${info.color}"></div>
+      <div style="flex:1">
+        <div class="ctx-text" style="font-weight:700;color:${info.color}">${info.name} — ${active.stack}/${active.maxStack} osciladores de acuerdo</div>
+        <div class="ctx-text" style="margin-top:3px">${info.meaning}</div>
+        <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+          <div class="ctx-source">Nivel: <span style="color:${tierColor};font-weight:700">${active.tier}</span> (score ${active.score}/100)</div>
+          <div class="ctx-source">Estado: ${lifecycleText}</div>
+          <div class="ctx-source">Detectada hace ~${barsAgo} min</div>
+        </div>
+      </div>
+    </div>`;
+}
+
 
 function renderPriceChart(r,dates,ad,tf){
   const ctx=document.getElementById('price-chart');
@@ -1847,6 +2101,10 @@ function selectAsset(id){
     renderScoresChart();
     renderContextAlerts(d.anomalyData.globalScore);
     document.getElementById('badge-chart').outerHTML=sourceBadge(d.source==='yahoo',currentTF,d.source==='simulation',d.source==='ctrader-bridge').replace('class="card-badge','id="badge-chart" class="card-badge');
+    if(d.closes&&d.highs&&d.lows){
+      updateDivergenceState(id,d.closes,d.highs,d.lows,d.volumes);
+      renderDivergencePanel(id);
+    }
   }
 }
 
@@ -1914,10 +2172,11 @@ async function fetchAsset(asset, forceFree=false){
   const bridgeData = await fetchFromBridge(asset);
   if(bridgeData){
     const sl=bridgeData.returns.slice(-currentTFOut), sd=bridgeData.dates.slice(-currentTFOut),
-          sc=bridgeData.closes.slice(-currentTFOut), sv=bridgeData.volumes.slice(-currentTFOut);
+          sc=bridgeData.closes.slice(-currentTFOut), sv=bridgeData.volumes.slice(-currentTFOut),
+          sh=(bridgeData.highs||bridgeData.closes).slice(-currentTFOut), slo=(bridgeData.lows||bridgeData.closes).slice(-currentTFOut);
     const lastPrice=sc[sc.length-1];
     log(`Pepperstone ✓ ${asset.display} — ${sl.length} velas — precio: ${lastPrice}`,'ok');
-    return{returns:sl,closes:sc,dates:sd,volumes:sv,anomalyData:detect(sl,asset.id,sv),source:'ctrader-bridge'};
+    return{returns:sl,closes:sc,dates:sd,volumes:sv,highs:sh,lows:slo,anomalyData:detect(sl,asset.id,sv),source:'ctrader-bridge'};
   }
   // forceFree = skip TD entirely, go straight to Yahoo (when credits exhausted)
   if(!forceFree && creditState.used < creditState.limit){
@@ -1926,13 +2185,13 @@ async function fetchAsset(asset, forceFree=false){
       log(`TD [${currentTF}]: ${asset.display}...`,'tf');
       const vals=await fetchTwelveData(asset,currentTF,currentTFOut);
       consumeCredits(1); // count immediately after successful API call
-      const{returns,closes,dates,volumes}=tdValsToReturns(vals);
-      const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut),sv=volumes.slice(-currentTFOut);
+      const{returns,closes,dates,volumes,highs,lows}=tdValsToReturns(vals);
+      const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut),sv=volumes.slice(-currentTFOut),sh=highs.slice(-currentTFOut),slo=lows.slice(-currentTFOut);
       tdOk.push(asset.id);
       const lastPrice=sc[sc.length-1];
       const priceStr=lastPrice!=null?(lastPrice<10?lastPrice.toFixed(5):lastPrice>1000?lastPrice.toFixed(2):lastPrice.toFixed(4)):'N/D';
       log(`TD ✓ ${asset.display} [${currentTF}] — ${sl.length} velas — precio: ${priceStr}`,'ok');
-      return{returns:sl,closes:sc,dates:sd,volumes:sv,anomalyData:detect(sl,asset.id,sv),source:'twelvedata'};
+      return{returns:sl,closes:sc,dates:sd,volumes:sv,highs:sh,lows:slo,anomalyData:detect(sl,asset.id,sv),source:'twelvedata'};
     }catch(e){
       if(isTDLimitError(e.message)) log(`TD ${asset.display}: créditos agotados — Yahoo Finance`,'warn');
       else log(`TD ${asset.display}: ${e.message} — Yahoo Finance`,'warn');
@@ -1952,11 +2211,11 @@ async function fetchAsset(asset, forceFree=false){
   try{
     log(`Yahoo [${currentTF}]: ${asset.display}...`,'yh');
     const pairs=await fetchYahooFinance(asset,currentTF);
-    const{returns,dates,closes}=pairsToReturns(pairs);
-    const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut);
+    const{returns,dates,closes,highs,lows}=pairsToReturns(pairs);
+    const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut),sh=highs.slice(-currentTFOut),slo=lows.slice(-currentTFOut);
     stopYahooProgress(asset.display,Date.now()-t0);
     log(`Yahoo ✓ ${asset.display} [${currentTF}] — ${sl.length} velas`,'yh');
-    return{returns:sl,closes:sc,dates:sd,anomalyData:detect(sl,asset.id),source:'yahoo'};
+    return{returns:sl,closes:sc,dates:sd,highs:sh,lows:slo,anomalyData:detect(sl,asset.id),source:'yahoo'};
   }catch(ye){
     stopYahooProgress(asset.display,Date.now()-t0);
     log(`Yahoo ${asset.display}: ${ye.message} — simulación`,'crit');
