@@ -215,6 +215,7 @@
     { id:'forex',   name:'Forex Monitor',   icon:'💱', file:'forex_tracker-v4.html' },
     { id:'gusano',  name:'El Gusano',       icon:'🐛', file:'el-gusano-protocolo-4-v5.html' },
     { id:'journal', name:'Trading Journal', icon:'📒', file:'trading_journal_v3-9-0.html' },
+    { id:'matf',    name:'MA Timeframe Calc', icon:'φ', file:'calculadora_ma_tf.html' },
   ];
 
   function injectNav(currentAppId){

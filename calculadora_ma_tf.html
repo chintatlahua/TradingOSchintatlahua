@@ -392,5 +392,10 @@ document.querySelectorAll('.ma-tab').forEach(tab=>{
 
 update();
 </script>
+<script src="os-core.js"></script>
+<script>
+TradingHub.init('matf', {}); // esta calculadora no emite eventos al hub, solo navega
+TradingHub.injectNav('matf'); // menú flotante para navegar entre las 7 apps
+</script>
 </body>
 </html>
