@@ -299,6 +299,26 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
 .ctx-text{font-size:10.5px;line-height:1.5;}
 .ctx-source{font-family:var(--font-mono);font-size:7.5px;color:var(--muted);margin-top:1px;}
 
+/* Banner de anomalía — grande a propósito, vive fuera del flujo normal de
+   tarjetas, justo debajo del ticker (la posición más visible de la app). */
+#anomaly-banner{
+  margin:0 auto;max-width:1400px;padding:16px 22px;
+  background:linear-gradient(135deg,rgba(232,67,147,0.12),rgba(108,92,231,0.08));
+  border:1.5px solid var(--danger);border-radius:10px;
+  box-shadow:0 6px 24px rgba(232,67,147,0.15);
+}
+.ab-header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.ab-title{font-size:16px;font-weight:800;color:var(--danger);letter-spacing:.3px}
+.ab-trigger{font-family:var(--font-mono);font-size:11px;font-weight:700;margin-top:3px}
+.ab-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.ab-stat{background:rgba(0,0,0,0.15);border-radius:7px;padding:10px 12px}
+.ab-stat-label{font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px}
+.ab-stat-value{font-size:20px;font-weight:800;color:var(--text)}
+.ab-stat-sub{font-family:var(--font-mono);font-size:8.5px;color:var(--muted2);margin-top:3px;line-height:1.5}
+.ab-prob-row{display:flex;justify-content:space-between;font-size:10.5px;padding:3px 0;border-bottom:0.5px solid var(--border)}
+.ab-prob-row:last-child{border-bottom:none}
+@media(max-width:600px){#anomaly-banner{margin:0 8px;padding:12px 14px}.ab-title{font-size:13px}}
+
 /* ── ANOMALY LIST ── */
 .anomaly-list{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;}
 .anom-item{display:flex;align-items:flex-start;gap:7px;background:var(--bg3);border-radius:5px;padding:7px 9px;border-left:2px solid transparent;animation:slin .3s ease;}
@@ -521,6 +541,11 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
     </div>
   </div>
 </div>
+
+<!-- BANNER DE ANOMALÍA — grande, imposible de no ver. Solo aparece cuando el
+     activo seleccionado tiene una anomalía real activa (mismo umbral que ya
+     dispara una Alerta). Vacío/oculto por defecto. -->
+<div id="anomaly-banner" style="display:none"></div>
 
 <div class="main">
 
@@ -1028,6 +1053,7 @@ function toggleAsset(id){
   if(activeAssets.has(id)){
     if(activeAssets.size<=1) return; // keep at least 1
     activeAssets.delete(id);
+    delete activeDivergence[id]; // evita mostrar una señal vieja si se reactiva después
   } else {
     activeAssets.add(id);
   }
@@ -1298,6 +1324,11 @@ function setTF(el){
   currentTF=el.dataset.tf;
   currentTFOut=parseInt(el.dataset.out);
   document.getElementById('mtf-tf-badge').textContent=currentTF.toUpperCase();
+  // FIX: sin esto, una señal de divergencia calculada en el TF anterior (con pivotes
+  // y precios de esa escala) se quedaba mostrada al cambiar de timeframe, y su chequeo
+  // de invalidación comparaba el precio actual (nueva escala) contra un pivote de la
+  // escala vieja — comparación sin sentido entre dos contextos distintos.
+  activeDivergence={};
   saveConfig();
   refreshAll(false);
 }
@@ -1749,6 +1780,106 @@ function updateDivergenceState(assetId,closes,highs,lows,volumes){
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// BANNER DE ANOMALÍA — ventana de atención + magnitud típica + probabilidad
+// empírica + contexto direccional. Cada pieza validada por separado con datos
+// sintéticos antes de integrarse aquí (ver checklist de la sesión). No se
+// predice DIRECCIÓN con falsa certeza — solo magnitud típica esperada (de
+// análogos históricos reales del propio activo) y, si existe, el contexto de
+// una divergencia activa (motor ya existente, solo lectura, sin lógica nueva
+// de detección aquí).
+// ═══════════════════════════════════════════════════════════════════════
+
+const BANNER_TF_MINUTES={'5min':5,'15min':15,'1h':60,'4h':240,'1day':1440};
+
+function bannerAutocorrLag1(series){
+  const n=series.length;
+  const mean=series.reduce((a,b)=>a+b,0)/n;
+  let num=0,den=0;
+  for(let i=0;i<n;i++)den+=(series[i]-mean)**2;
+  for(let i=1;i<n;i++)num+=(series[i]-mean)*(series[i-1]-mean);
+  return den===0?0:num/den;
+}
+
+// Ventana de atención — proxy simple de half-life de GARCH (persistencia del
+// agrupamiento de volatilidad) vía autocorrelación de retornos al cuadrado,
+// en vez de ajustar un GARCH(1,1) completo (optimización numérica no trivial).
+function calcAttentionWindow(returns,timeframe){
+  const tfMin=BANNER_TF_MINUTES[timeframe]||15;
+  if(!returns||returns.length<20)return{bars:3,minutes:tfMin*3,method:'fallback'};
+  const sq=returns.map(r=>r*r);
+  const rho=bannerAutocorrLag1(sq);
+  if(!(rho>0.01&&rho<0.999))return{bars:3,minutes:tfMin*3,method:'fallback',rho};
+  const halfLifeBars=Math.log(0.5)/Math.log(rho);
+  const bars=Math.max(1,Math.min(20,Math.round(halfLifeBars)));
+  return{bars,minutes:bars*tfMin,method:'acf',rho};
+}
+
+// Análogos históricos — busca anomalías pasadas de magnitud similar, mide qué
+// pasó realmente en las siguientes N velas. Descarta análogos sin suficientes
+// velas futuras para medir su desenlace completo (no se cuentan a medias).
+function findHistoricalAnalogs(anomalies,closes,currentAnomalyIndex,windowBars,toleranceRatio=0.5){
+  const current=anomalies.find(a=>a.i===currentAnomalyIndex);
+  if(!current)return{analogs:[],usable:0,total:0};
+  const currentSigma=current.score;
+  const loBound=currentSigma*(1-toleranceRatio),hiBound=currentSigma*(1+toleranceRatio);
+  const candidates=anomalies.filter(a=>a.i!==currentAnomalyIndex&&a.score>=loBound&&a.score<=hiBound);
+  const usable=[];let discardedNoFuture=0;
+  for(const a of candidates){
+    if(a.i+windowBars>=closes.length){discardedNoFuture++;continue;}
+    const priceAt=closes[a.i],priceAfter=closes[a.i+windowBars];
+    if(priceAt==null||priceAfter==null||priceAt===0)continue;
+    usable.push({pivotIndex:a.i,sigma:a.score,moveAfter:(priceAfter-priceAt)/priceAt});
+  }
+  return{analogs:usable,usable:usable.length,total:candidates.length,discardedNoFuture};
+}
+function buildProbabilityDist(analogs,thresholds=[0.003,0.008,0.015]){
+  if(analogs.length===0)return null;
+  return thresholds.map(t=>{
+    const count=analogs.filter(a=>Math.abs(a.moveAfter)>=t).length;
+    return{threshold:t,count,pct:Math.round((count/analogs.length)*100)};
+  });
+}
+
+// Contexto direccional — SOLO LECTURA de activeDivergence (motor ya existente).
+const DIV_BANNER_TYPE_NAMES={
+  regularBull:{name:'Regular Alcista',implication:'posible reversión al alza'},
+  regularBear:{name:'Regular Bajista',implication:'posible reversión a la baja'},
+  hiddenBull:{name:'Oculta Alcista',implication:'la tendencia alcista podría seguir'},
+  hiddenBear:{name:'Oculta Bajista',implication:'la tendencia bajista podría seguir'},
+};
+function getDivergenceContext(activeDivergenceForAsset){
+  if(!activeDivergenceForAsset||activeDivergenceForAsset.invalidated)return null;
+  const info=DIV_BANNER_TYPE_NAMES[activeDivergenceForAsset.type];
+  if(!info)return null;
+  return{label:`Divergencia ${info.name} activa (${activeDivergenceForAsset.tier}, ${activeDivergenceForAsset.stack}/${activeDivergenceForAsset.maxStack})`,implication:info.implication,tier:activeDivergenceForAsset.tier};
+}
+
+// Orquestador — arma el estado completo del banner para un activo, o null si
+// no hay ninguna anomalía activa (mismo umbral que ya dispara pushAlert(),
+// no se inventa uno nuevo).
+function computeAnomalyBanner(id,d){
+  const ad=d.anomalyData;
+  if(!ad||ad.globalScore<30||!ad.anomalies.length)return null;
+  const mostRecent=ad.anomalies.reduce((a,b)=>b.i>a.i?b:a);
+  const attention=calcAttentionWindow(d.returns,currentTF);
+  const analogResult=findHistoricalAnalogs(ad.anomalies,d.closes,mostRecent.i,attention.bars);
+  const probDist=buildProbabilityDist(analogResult.analogs);
+  const divContext=getDivergenceContext(activeDivergence[id]);
+  const lastReturn=d.returns[mostRecent.i];
+  return{
+    assetName:ASSETS_DEF.find(a=>a.id===id)?.display||id,
+    triggerSigma:mostRecent.score,
+    triggerDir:lastReturn>=0?1:-1,
+    triggerPct:lastReturn*100,
+    attention,
+    analogResult,
+    probDist,
+    divContext,
+    globalScore:ad.globalScore,
+  };
+}
+
 function detect(r, assetId, volumes=null){
   const methodEl=document.getElementById('method');
   const sensEl=document.getElementById('sensitivity');
@@ -1977,6 +2108,43 @@ function renderDivergencePanel(id){
     </div>`;
 }
 
+function renderAnomalyBanner(id,d){
+  const el=document.getElementById('anomaly-banner');
+  if(!el)return;
+  const banner=computeAnomalyBanner(id,d);
+  if(!banner){el.style.display='none';el.innerHTML='';return;}
+
+  const dirArrow=banner.triggerDir>0?'▲':'▼';
+  const dirColor=banner.triggerDir>0?'var(--safe)':'var(--danger)';
+
+  let attentionHtml=`<div class="ab-stat"><div class="ab-stat-label">MANTENTE ATENTO</div><div class="ab-stat-value">~${banner.attention.minutes} min</div><div class="ab-stat-sub">${banner.attention.method==='acf'?'ventana calculada del agrupamiento de volatilidad de este activo':'ventana de referencia — datos insuficientes para calcularla con precisión'}</div></div>`;
+
+  let probHtml='';
+  const usable=banner.analogResult.usable;
+  if(banner.probDist&&usable>0){
+    const rows=banner.probDist.map(p=>`<div class="ab-prob-row"><span>Movimiento ≥ ${(p.threshold*100).toFixed(1)}%</span><span style="font-weight:700">${p.pct}% (${p.count}/${usable})</span></div>`).join('');
+    probHtml=`<div class="ab-stat"><div class="ab-stat-label">PROBABILIDAD EMPÍRICA (${usable} caso${usable===1?'':'s'} similar${usable===1?'':'es'} en el historial)</div>${rows}${usable<5?'<div class="ab-stat-sub" style="color:var(--warn)">⚠ Muestra pequeña — estimación aproximada, no una certeza estadística</div>':''}</div>`;
+  } else {
+    probHtml=`<div class="ab-stat"><div class="ab-stat-label">PROBABILIDAD EMPÍRICA</div><div class="ab-stat-sub">Sin suficientes anomalías pasadas similares en el historial cargado para estimar una distribución.</div></div>`;
+  }
+
+  let divHtml='';
+  if(banner.divContext){
+    divHtml=`<div class="ab-stat"><div class="ab-stat-label">CONTEXTO DIRECCIONAL (adicional, no una predicción)</div><div class="ab-stat-sub">${banner.divContext.label} — ${banner.divContext.implication}</div></div>`;
+  }
+
+  el.innerHTML=`
+    <div class="ab-header">
+      <div>
+        <div class="ab-title">⚠ ANOMALÍA DETECTADA — ${banner.assetName}</div>
+        <div class="ab-trigger" style="color:${dirColor}">${dirArrow} ${Math.abs(banner.triggerPct).toFixed(3)}% (${banner.triggerSigma.toFixed(2)}σ) · Score global ${banner.globalScore}/100</div>
+      </div>
+    </div>
+    <div class="ab-grid">${attentionHtml}${probHtml}${divHtml}</div>
+  `;
+  el.style.display='block';
+}
+
 
 function renderPriceChart(r,dates,ad,tf){
   const ctx=document.getElementById('price-chart');
@@ -2105,6 +2273,7 @@ function selectAsset(id){
       updateDivergenceState(id,d.closes,d.highs,d.lows,d.volumes);
       renderDivergencePanel(id);
     }
+    renderAnomalyBanner(id,d);
   }
 }
 
@@ -2245,14 +2414,43 @@ async function refreshAll(isMacroRefresh=true){
 
   if(isMacroRefresh){
     cryptoData=await loadCrypto()||{};
-    macroData=await loadFREDAll();
+    const cryptoSucceeded=cryptoData?.btc!=null; // independiente de FRED — fuente distinta (CoinGecko)
+    // FIX: antes 'macroData=await loadFREDAll()' reemplazaba TODO el objeto, incluso
+    // cuando alguna serie fallaba en este ciclo — borrando valores buenos de un
+    // refresh anterior y mostrando "N/D" pese al aviso de "última actualización
+    // completa" (que sí tenía la hora correcta, pero los datos ya se habían perdido).
+    // Ahora se conserva el valor previo por serie si el fetch de esta ronda falló.
+    const newMacroData=await loadFREDAll();
+    const anySeriesSucceeded=Object.values(newMacroData).some(v=>v!=null);
+    for(const key of Object.keys(newMacroData)){
+      if(newMacroData[key]!=null) macroData[key]=newMacroData[key];
+      // si newMacroData[key] es null (falló esta ronda), se deja el valor previo intacto
+    }
     renderMacro();
-    // hide stale notices and record time of this full refresh
-    const notice=document.getElementById('macro-stale-notice');
-    if(notice) notice.style.display='none';
-    const btcBadge=document.getElementById('btc-stale-badge');
-    if(btcBadge) btcBadge.style.display='none';
-    window._lastMacroRefreshTime=new Date();
+    // FIX: antes esto se ocultaba/actualizaba siempre que isMacroRefresh fuera true, sin
+    // importar si FRED realmente respondió — con el fix de arriba (conservar valores
+    // previos), eso hubiera dejado datos viejos en pantalla SIN avisar que ya no son
+    // frescos. Ahora se marca "actualizado" por FUENTE — FRED y CoinGecko controlan
+    // cada uno su propio aviso, ya no se mezclan (antes el badge de BTC/ETH dependía
+    // por error de si FRED tuvo éxito, no de si CoinGecko realmente respondió).
+    if(anySeriesSucceeded){
+      const notice=document.getElementById('macro-stale-notice');
+      if(notice) notice.style.display='none';
+      window._lastMacroRefreshTime=new Date();
+    } else if(window._lastMacroRefreshTime){
+      const notice=document.getElementById('macro-stale-notice');
+      const staleTime=document.getElementById('macro-stale-time');
+      if(notice){staleTime.textContent=window._lastMacroRefreshTime.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});notice.style.display='block';}
+    }
+    if(cryptoSucceeded){
+      const btcBadge=document.getElementById('btc-stale-badge');
+      if(btcBadge) btcBadge.style.display='none';
+      window._lastCryptoRefreshTime=new Date();
+    } else if(window._lastCryptoRefreshTime){
+      const btcBadge=document.getElementById('btc-stale-badge');
+      const btcStaleTime=document.getElementById('btc-stale-time');
+      if(btcBadge){btcStaleTime.textContent=window._lastCryptoRefreshTime.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});btcBadge.style.display='inline';}
+    }
   } else {
     // show stale notices with timestamp of last full macro refresh
     const notice=document.getElementById('macro-stale-notice');
@@ -2264,8 +2462,8 @@ async function refreshAll(isMacroRefresh=true){
     }
     const btcBadge=document.getElementById('btc-stale-badge');
     const btcStaleTime=document.getElementById('btc-stale-time');
-    if(btcBadge && window._lastMacroRefreshTime){
-      const t=window._lastMacroRefreshTime;
+    if(btcBadge && window._lastCryptoRefreshTime){
+      const t=window._lastCryptoRefreshTime;
       if(btcStaleTime) btcStaleTime.textContent=t.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       btcBadge.style.display='inline';
     }
