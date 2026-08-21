@@ -562,6 +562,11 @@ function toggleTheme() {
 //  STATE
 // ══════════════════════════════════════════════════════
 let CUR = 'sp', SESS = 'premarket', MKT = {}, isLoading = false;
+// Conserva el último valor REAL de cada serie de FRED que falló individualmente en
+// una ronda posterior — antes, un fallo silencioso caía a un número fijo inventado
+// (ej. 4.2 para hySpread) indistinguible de un dato real. Mismo patrón que se aplicó
+// en Anomaly Radar para el mismo tipo de problema.
+let LAST_GOOD_FRED = {};
 
 // ══════════════════════════════════════════════════════
 //  SESSION CONFIG  (pesos por sesión para cada activo)
@@ -1446,19 +1451,23 @@ async function doFetch() {
     if (bWti    != null) { wti    = bWti;    bridgeOk++; }
     const spread210 = +(y10 - y2).toFixed(3);
     const spread210Prev = +(y10Prev - y2Prev).toFixed(3);
-    const hySpread  = hyFred?.value ?? 4.2;
+    const hySpread  = hyFred?.value ?? (LAST_GOOD_FRED.hySpread ?? 4.2);
+    if (hyFred?.value != null) LAST_GOOD_FRED.hySpread = hySpread;
     // DPRIME = Prime Rate (~7.5%). TED Spread original medía T-Bill vs LIBOR (0.10–0.50 normal).
     // Proxy: Prime − 3.0 (diferencial histórico Prime vs T-Bill) → rango similar 0.10–0.60
     // Si FRED devuelve null (key vacía), usar fallback 0.18 (neutral).
-    const tedSpread = tedFred?.value != null ? +Math.max(0, tedFred.value - 3.0).toFixed(3) : 0.18;
+    const tedSpread = tedFred?.value != null ? +Math.max(0, tedFred.value - 3.0).toFixed(3) : (LAST_GOOD_FRED.tedSpread ?? 0.18);
+    if (tedFred?.value != null) LAST_GOOD_FRED.tedSpread = tedSpread;
     // CRB proxy: PPIACO (Producer Price Index) × 1.25 + 5
     // Nota: PPIACO no es el CRB Index real, pero correlaciona (~0.85) con él.
     // PPIACO típico ~200-230 → proxy CRB ~255-292. CRB real ronda 250-320.
-    const crbVal    = crbFred?.value != null ? +(crbFred.value * 1.25 + 5).toFixed(1) : 275;
-    let eiaInv = -1.5;
+    const crbVal    = crbFred?.value != null ? +(crbFred.value * 1.25 + 5).toFixed(1) : (LAST_GOOD_FRED.crbVal ?? 275);
+    if (crbFred?.value != null) LAST_GOOD_FRED.crbVal = crbVal;
+    let eiaInv = LAST_GOOD_FRED.eiaInv ?? -1.5;
     if (eiaFred?.value != null && eiaFred?.prev != null) {
       eiaInv = +((eiaFred.value - eiaFred.prev) / 1000).toFixed(1);
       eiaInv = Math.max(-8, Math.min(8, eiaInv));
+      LAST_GOOD_FRED.eiaInv = eiaInv;
     }
 
     // P/C Ratio proxy — estimado desde VIX (sin datos CBOE reales)
