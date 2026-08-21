@@ -155,6 +155,14 @@
         try{
           const j = await r.json();
           if (!j.contents) return null;
+          // FIX: _tryFetch ya valida que el SOBRE externo ({contents:"..."}) sea JSON
+          // válido — pero eso no dice nada sobre lo que hay DENTRO de 'contents'. Si
+          // allorigins no logró traer el contenido real (ej. devolvió una página de
+          // error como texto), el sobre sigue siendo JSON válido pese a que adentro
+          // hay basura — y este Response reconstruido nunca pasaba por esa validación,
+          // saltándose por completo el fix de _tryFetch.
+          try{ JSON.parse(j.contents); }
+          catch(innerErr){ return null; }
           return new Response(j.contents, { status: 200, headers: { 'Content-Type': 'application/json' } });
         }catch(e){ return null; }
       } },
@@ -163,6 +171,7 @@
 
   function getStickyProxy(){ try{ return localStorage.getItem(STICKY_KEY); }catch(e){ return null; } }
   function setStickyProxy(name){ try{ localStorage.setItem(STICKY_KEY, name); }catch(e){} }
+  function clearStickyProxy(){ try{ localStorage.removeItem(STICKY_KEY); }catch(e){} }
 
   async function _raceGroup(url, group){
     const attempts = NAMED_PROXIES.filter(p => p.group === group);
@@ -187,6 +196,12 @@
       if (p){
         const r = await p.fn(url);
         if (r) return r; // sigue vivo — resuelto en 1 sola petición
+        // FIX: si falló, borrarlo AQUÍ MISMO — antes se quedaba guardado en
+        // localStorage indefinidamente, y cada llamada siguiente (una por cada
+        // serie de FRED, una por cada activo) volvía a perder hasta 10s completos
+        // reintentando un proxy ya sabido-roto, antes de caer al resto de la
+        // cascada. Con esto, la SIGUIENTE llamada ya no pierde ese tiempo.
+        clearStickyProxy();
       }
     }
 
