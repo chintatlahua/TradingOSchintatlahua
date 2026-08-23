@@ -1,0 +1,14 @@
+{
+  "name": "Forex Monitor",
+  "short_name": "Forex Monitor",
+  "description": "Sesiones, solapamientos y detector de precios en tiempo real",
+  "start_url": "./forex_tracker-v4.html",
+  "display": "standalone",
+  "background_color": "#0e131a",
+  "theme_color": "#0e131a",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

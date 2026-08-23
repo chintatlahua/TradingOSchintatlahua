@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FOREX · Monitor en Vivo</title>
+<!-- PWA / iOS "Añadir a pantalla de inicio" -->
+<link rel="manifest" href="manifest-forex.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Forex Monitor">
+<meta name="theme-color" content="#0e131a">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
@@ -934,9 +942,9 @@ function isUKDST(dt) {
 function isAUDST(dt) {
   const y=dt.getUTCFullYear();
   // End of current DST period: 1st Sun April this year, 02:00 AEDT = 15:00 UTC
-  const endThis  = new Date(nthSun(y,  3,1).getTime()+15*3600000);
+  const endThis  = new Date(nthSun(y,  3,1).getTime() - (11-3)*3600000); // 3:00 AEDT (UTC+11) del 1er domingo de abril
   // Start of next DST period: 1st Sun Oct this year, 02:00 AEST = 16:00 UTC
-  const startThis= new Date(nthSun(y,  9,1).getTime()+16*3600000);
+  const startThis= new Date(nthSun(y,  9,1).getTime() - (10-2)*3600000); // 2:00 AEST (UTC+10) del 1er domingo de octubre
   // End of previous DST period: 1st Sun April last year (already passed)
   // We need: is dt between startThis and end of year, OR between Jan1 and endThis?
   return dt>=startThis || dt<endThis;
@@ -952,10 +960,10 @@ function nextDSTChange(dt) {
     {d:new Date(lastSun(y,  2).getTime()+1*3600000),   msg:'UK → BST (GMT+1)'},
     {d:new Date(lastSun(y,  9).getTime()+1*3600000),   msg:'UK → GMT (GMT+0)'},
     {d:new Date(lastSun(y+1,2).getTime()+1*3600000),   msg:'UK → BST (GMT+1)'},
-    {d:new Date(nthSun(y,  9,1).getTime()+16*3600000), msg:'Australia → AEDT (GMT+11)'},
-    {d:new Date(nthSun(y,  3,1).getTime()+15*3600000), msg:'Australia → AEST (GMT+10)'},
-    {d:new Date(nthSun(y+1,3,1).getTime()+15*3600000), msg:'Australia → AEST (GMT+10)'},
-    {d:new Date(nthSun(y+1,9,1).getTime()+16*3600000), msg:'Australia → AEDT (GMT+11)'},
+    {d:new Date(nthSun(y,  9,1).getTime() - (10-2)*3600000), msg:'Australia → AEDT (GMT+11)'},
+    {d:new Date(nthSun(y,  3,1).getTime() - (11-3)*3600000), msg:'Australia → AEST (GMT+10)'},
+    {d:new Date(nthSun(y+1,3,1).getTime() - (11-3)*3600000), msg:'Australia → AEST (GMT+10)'},
+    {d:new Date(nthSun(y+1,9,1).getTime() - (10-2)*3600000), msg:'Australia → AEDT (GMT+11)'},
   ].filter(c=>c.d>dt).sort((a,b)=>a.d-b.d);
   if (!candidates.length) return null;
   const n=candidates[0];
