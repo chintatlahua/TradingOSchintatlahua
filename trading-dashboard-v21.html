@@ -1363,17 +1363,20 @@ async function doFetch() {
     // Radar). Se corre EN PARALELO con el batch de Yahoo, no lo bloquea — si el bridge
     // no responde en 1.5s, se usa Yahoo exactamente como antes, sin ningún cambio de
     // comportamiento.
-    const BRIDGE_URL = 'https://127.0.0.1:5178';
+    const BRIDGE_CANDIDATES = ['https://127.0.0.1:5178', 'https://100.124.191.24:5178'];
     async function fetchBridgePrice(sym){
-      try{
-        const ctrl=new AbortController();
-        const t=setTimeout(()=>ctrl.abort(), 1500);
-        const res=await fetch(`${BRIDGE_URL}/precio/${sym}`, {signal:ctrl.signal});
-        clearTimeout(t);
-        if(!res.ok) return null;
-        const d=await res.json();
-        return d.price ?? null;
-      }catch(e){ return null; } // bridge no disponible — caso normal, sin log de error
+      for(const base of BRIDGE_CANDIDATES){
+        try{
+          const ctrl=new AbortController();
+          const t=setTimeout(()=>ctrl.abort(), 1500);
+          const res=await fetch(`${base}/precio/${sym}`, {signal:ctrl.signal});
+          clearTimeout(t);
+          if(!res.ok) continue;
+          const d=await res.json();
+          return d.price ?? null;
+        }catch(e){ /* este candidato no respondió — probar el siguiente */ }
+      }
+      return null; // bridge no disponible en ningún candidato — caso normal, sin log de error
     }
     const bridgePromise = Promise.allSettled([
       fetchBridgePrice('us500'), fetchBridgePrice('nas100'), fetchBridgePrice('xauusd'),

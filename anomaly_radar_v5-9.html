@@ -2313,18 +2313,32 @@ function simulateFallback(asset){
 // plan de TwelveData en índices (NQ/SP requieren plan Grow, ver auditoría previa).
 // Se intenta primero, con timeout corto; si no responde (bridge apagado, Mac
 // cerrada) cae exactamente al flujo TD→Yahoo que ya existía, sin romper nada.
-const BRIDGE_URL = 'https://127.0.0.1:5178';
+// FIX: antes solo probaba 127.0.0.1 (solo funciona abriendo la app EN la propia
+// Mac) — ahora también intenta la IP de Tailscale de la Mac, para que abrir la
+// app desde el iPhone (u otro dispositivo en la misma cuenta de Tailscale)
+// también use el bridge en vivo en vez de caer siempre a TD/Yahoo.
+const BRIDGE_CANDIDATES = ['https://127.0.0.1:5178', 'https://100.124.191.24:5178'];
 const BRIDGE_ASSET_MAP = { NQ: 'nas100', SP: 'us500', XAU: 'xauusd', EUR: 'eurusd', BTC: 'btcusd', VIX: 'vix' }; // WATCHED_SYMBOLS en ctrader_price_bridge.py
+
+async function fetchBridgeUrl(path){
+  for(const base of BRIDGE_CANDIDATES){
+    try{
+      const ctrl=new AbortController();
+      const t=setTimeout(()=>ctrl.abort(), 2000);
+      const res=await fetch(base+path, {signal:ctrl.signal});
+      clearTimeout(t);
+      if(res.ok) return res;
+    }catch(e){ /* este candidato no respondió — probar el siguiente */ }
+  }
+  return null;
+}
 
 async function fetchFromBridge(asset){
   const bridgeSym = BRIDGE_ASSET_MAP[asset.id];
   if(!bridgeSym) return null; // este activo no lo sirve el bridge (XAU/EUR/BTC siguen TD/Yahoo normal)
   try{
-    const ctrl=new AbortController();
-    const t=setTimeout(()=>ctrl.abort(), 2000);
-    const res=await fetch(`${BRIDGE_URL}/historial/${bridgeSym}`, {signal:ctrl.signal});
-    clearTimeout(t);
-    if(!res.ok) return null;
+    const res=await fetchBridgeUrl(`/historial/${bridgeSym}`);
+    if(!res) return null;
     const d=await res.json();
     if(!d.returns || d.returns.length<20) return null; // muy poco historial, no vale la pena
     // FIX: el bridge manda 'dates' como timestamps Unix (números, segundos) — el resto

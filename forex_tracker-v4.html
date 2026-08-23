@@ -1581,7 +1581,22 @@ function checkStale(){
 // llama detFetch() sincrónicamente al cargar la página, y si esta constante
 // se declarara después de ese punto, referenciarla lanzaría "Cannot access
 // before initialization" (temporal dead zone de const) apenas abrieras la app.
-const BRIDGE_URL = 'https://127.0.0.1:5178';
+// FIX: antes solo probaba 127.0.0.1 (solo funciona abriendo la app EN la propia
+// Mac) — ahora también intenta la IP de Tailscale, para que abrir la app desde
+// el iPhone también use el bridge en vivo en vez de caer siempre a Yahoo.
+const BRIDGE_CANDIDATES = ['https://127.0.0.1:5178', 'https://100.124.191.24:5178'];
+async function fetchBridgeUrl(path, timeoutMs){
+  for(const base of BRIDGE_CANDIDATES){
+    try{
+      const ctrl=new AbortController();
+      const t=setTimeout(()=>ctrl.abort(), timeoutMs);
+      const res=await fetch(base+path, {signal:ctrl.signal});
+      clearTimeout(t);
+      if(res.ok) return res;
+    }catch(e){ /* este candidato no respondió — probar el siguiente */ }
+  }
+  return null;
+}
 // key de detAssets -> símbolo que expone el bridge (ver WATCHED_SYMBOLS en
 // ctrader_price_bridge.py) — los 5 activos que sigue este detector.
 const BRIDGE_SYMBOLS = { gold:'xauusd', sp:'us500', ndx:'nas100', eurusd:'eurusd', btc:'btcusd' };
@@ -1796,11 +1811,8 @@ async function detFetchFromBridge(id) {
   const bridgeSym = BRIDGE_SYMBOLS[id];
   if (!bridgeSym) return null; // este id no lo sirve el bridge
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 1200);
-    const res = await fetch(`${BRIDGE_URL}/precio/${bridgeSym}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (!res.ok) return null;
+    const res = await fetchBridgeUrl(`/precio/${bridgeSym}`, 1200);
+    if (!res) return null;
     const d = await res.json();
     if (d.price == null) return null;
     // 'prev' real: el último tick propio ya acumulado, si existe — más preciso
@@ -2028,11 +2040,8 @@ async function pollBridge() {
   const rows = [];
   for (const [assetId, bridgeSym] of Object.entries(BRIDGE_SYMBOLS)) {
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 1500);
-      const res = await fetch(`${BRIDGE_URL}/precio/${bridgeSym}`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (!res.ok) continue;
+      const res = await fetchBridgeUrl(`/precio/${bridgeSym}`, 1500);
+      if (!res) continue;
       const d = await res.json();
       const label = (detAssets[assetId] && detAssets[assetId].label) || bridgeSym.toUpperCase();
       rows.push(`<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,150,0.08);border:1px solid rgba(0,255,150,0.3);border-radius:6px;padding:4px 10px;font-size:11px;margin-right:8px">
