@@ -791,6 +791,15 @@ select{background:var(--bg2);border:0.5px solid var(--border2);border-radius:5px
     </div>
   </div>
 
+  <!-- ROW 4b — Volumen direccional (compra vs venta), separado por la misma razón
+       que la divergencia: responde una pregunta distinta a los 5 métodos de arriba. -->
+  <div style="margin-top:12px;margin-bottom:.85rem">
+    <div class="card">
+      <div class="card-title">Volumen Direccional (compra/venta) <span class="card-badge badge-tf" id="badge-dirvol">—</span></div>
+      <div id="dirvol-panel"><div class="no-data">Selecciona un activo</div></div>
+    </div>
+  </div>
+
   <div class="section-label">REGISTRO DEL SISTEMA</div>
   <div class="log-panel"><div class="log-entries" id="log-panel"></div></div>
 </div>
@@ -1062,6 +1071,7 @@ function toggleAsset(id){
     if(activeAssets.size<=1) return; // keep at least 1
     activeAssets.delete(id);
     delete activeDivergence[id]; // evita mostrar una señal vieja si se reactiva después
+    delete activeDirVol[id];
   } else {
     activeAssets.add(id);
   }
@@ -1337,6 +1347,7 @@ function setTF(el){
   // de invalidación comparaba el precio actual (nueva escala) contra un pivote de la
   // escala vieja — comparación sin sentido entre dos contextos distintos.
   activeDivergence={};
+  activeDirVol={};
   saveConfig();
   refreshAll(false);
 }
@@ -1755,7 +1766,7 @@ function computeDivergenceStack(closes,highs,lows,volumes){
   return allResults;
 }
 
-function updateDivergenceState(assetId,closes,highs,lows,volumes){
+function updateDivergenceState(assetId,closes,highs,lows,volumes,dates){
   if(!closes||closes.length<40){activeDivergence[assetId]=null;return;} // muy poco historial para pivotes confiables
   const stacks=computeDivergenceStack(closes,highs,lows,volumes);
   const directionOf={regularBull:1,regularBear:-1,hiddenBull:1,hiddenBear:-1}; // dirección del pivote de precio usado
@@ -1767,15 +1778,21 @@ function updateDivergenceState(assetId,closes,highs,lows,volumes){
     if(r.stack<2||r.pivotIndex==null)continue;
     const dir=directionOf[type];
     const score=divScore(r.stack,r.maxStack,closes,r.pivotIndex,r.prevPivotIndex,dir);
-    if(!best||score>best.score)best={type,direction:dir,stack:r.stack,maxStack:r.maxStack,score,pivotIndex:r.pivotIndex,pivotPrice:closes[r.pivotIndex]};
+    if(!best||score>best.score)best={type,direction:dir,stack:r.stack,maxStack:r.maxStack,score,pivotIndex:r.pivotIndex,pivotDate:dates?dates[r.pivotIndex]:null,pivotPrice:closes[r.pivotIndex]};
   }
 
   const prevActive=activeDivergence[assetId];
   if(best){
-    // Nueva señal encontrada — reemplaza cualquier señal activa anterior si es más
-    // reciente o de mayor score, igual que el 'activeDir' del script original.
-    if(!prevActive||prevActive.pivotIndex!==best.pivotIndex||best.score>=prevActive.score){
-      activeDivergence[assetId]={...best,tier:divTier(best.score),invalidated:false,followed:false,ts:Date.now()};
+    // FIX: antes comparaba 'pivotIndex' (posición cruda en el arreglo) — pero esa
+    // posición se recorre cada vez que llega una vela nueva y la ventana se desliza,
+    // aunque sea EXACTAMENTE la misma vela real de antes. Eso hacía que "detectada
+    // hace ~X min" se reseteara solo, cada ~15 minutos, sin que la señal realmente
+    // cambiara. Ahora se compara por la FECHA real de la vela (dates[pivotIndex]),
+    // que no cambia al deslizarse la ventana — con respaldo a pivotIndex si por
+    // algún motivo 'dates' no está disponible (ej. fuente de datos sin fechas).
+    const sameSignal=prevActive&&(dates?prevActive.pivotDate===best.pivotDate:prevActive.pivotIndex===best.pivotIndex);
+    if(!prevActive||!sameSignal||best.score>=prevActive.score){
+      activeDivergence[assetId]={...best,tier:divTier(best.score),invalidated:false,followed:false,ts:(sameSignal&&prevActive)?prevActive.ts:Date.now()};
     }
   }
   // Verificar invalidación/objetivo de la señal activa existente contra el precio actual
@@ -1888,6 +1905,77 @@ function computeAnomalyBanner(id,d){
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// VOLUMEN DIRECCIONAL — compra vs venta por vela, usando "Close Location
+// Value" (misma base que Accumulation/Distribution Line y Chaikin Money
+// Flow): dónde cerró la vela DENTRO de su rango, no solo si cerró arriba o
+// abajo de la apertura. Panel SEPARADO del score principal — responde una
+// pregunta distinta a los 5 métodos de anomalía de retorno (¿hacia dónde se
+// inclinó la presión de compra/venta?, no ¿este retorno es raro?), mismo
+// principio ya aplicado con el motor de divergencias.
+// ═══════════════════════════════════════════════════════════════════════
+
+function directionalVolumeDelta(opens,highs,lows,closes,volumes){
+  const delta=[];
+  for(let i=0;i<closes.length;i++){
+    const range=highs[i]-lows[i];
+    if(range===0||volumes[i]==null){delta.push(0);continue;}
+    const buyVol=volumes[i]*((closes[i]-lows[i])/range);
+    const sellVol=volumes[i]*((highs[i]-closes[i])/range);
+    delta.push(buyVol-sellVol);
+  }
+  return delta;
+}
+
+function directionalVolumeDetect(delta,threshold=3){
+  const valid=delta.filter(d=>d!==0);
+  if(valid.length<10)return null;
+  // FIX: mediana/MAD se calculaban sobre 'delta' completo (incluyendo ceros de
+  // velas de rango plano) — eso reduce el MAD artificialmente (los ceros "no
+  // se desvían de nada"), inflando el score de cualquier anomalía real. Ahora
+  // se calculan solo sobre los valores válidos, y se aplican a TODAS las
+  // posiciones (los ceros solo se puntúan contra ese mismo centro, no ayudan
+  // a definirlo).
+  const med=median(valid),m=mad(valid)*1.4826||1;
+  return delta.map((d,i)=>{
+    const z=(d-med)/m;
+    return{i,score:z,flag:Math.abs(z)>threshold,direction:z>0?'compra':'venta'};
+  });
+}
+
+// Estado de la señal activa por activo — mismo patrón que activeDivergence.
+let activeDirVol={};
+
+function updateDirVolState(assetId,opens,highs,lows,closes,volumes,dates){
+  if(!opens||!highs||!lows||!closes||!volumes||closes.length<20){activeDirVol[assetId]=null;return;}
+  const validVol=volumes.filter(v=>v!=null&&!isNaN(v)&&v>0).length>=volumes.length*0.8;
+  if(!validVol){activeDirVol[assetId]=null;return;}
+  const delta=directionalVolumeDelta(opens,highs,lows,closes,volumes);
+  // FIX: antes el umbral estaba fijo en 3, ignorando el selector de sensibilidad
+  // (Alta/Media/Baja) que sí controla los otros 5 métodos — ahora usa el mismo,
+  // para que responda igual cuando Rafael la cambia.
+  const sensEl=document.getElementById('sensitivity');
+  const t=sensEl?parseFloat(sensEl.value):2.0;
+  const result=directionalVolumeDetect(delta,t);
+  if(!result){activeDirVol[assetId]=null;return;}
+  // Igual que con divergencias: solo se muestra la señal marcada MÁS RECIENTE.
+  const flagged=result.filter(r=>r.flag);
+  if(flagged.length===0){activeDirVol[assetId]=null;return;}
+  const mostRecent=flagged.reduce((a,b)=>b.i>a.i?b:a);
+  const eventDate=dates?dates[mostRecent.i]:null;
+  // FIX: mismo problema que en divergencias — comparar por índice crudo se rompe
+  // cada vez que la ventana se desliza (llega vela nueva). Ahora se compara por
+  // la fecha real de la vela, que no cambia al deslizarse la ventana.
+  const prevActive=activeDirVol[assetId];
+  const sameSignal=prevActive&&(dates?prevActive.eventDate===eventDate:prevActive.i===mostRecent.i);
+  // FIX 2: la primera versión de este fix, al detectar 'misma señal', dejaba el
+  // objeto completo congelado (incluyendo el índice viejo, ya inválido tras
+  // deslizarse la ventana) — solo debía preservarse el timestamp, no todo lo
+  // demás. Ahora se refresca índice/score en cada llamada, igual que ya hace
+  // correctamente el motor de divergencias, y solo el 'ts' se preserva.
+  activeDirVol[assetId]={...mostRecent,eventDate,ts:(sameSignal&&prevActive)?prevActive.ts:Date.now()};
+}
+
 function detect(r, assetId, volumes=null){
   const methodEl=document.getElementById('method');
   const sensEl=document.getElementById('sensitivity');
@@ -1969,16 +2057,17 @@ async function fetchYahooFinance(asset,tf){
     const result=d?.chart?.result?.[0];
     if(!result) throw new Error(`Yahoo sin datos para ${asset.display}`);
     const timestamps=result.timestamp,closes=result.indicators?.quote?.[0]?.close;
-    const highsRaw=result.indicators?.quote?.[0]?.high,lowsRaw=result.indicators?.quote?.[0]?.low;
+    const highsRaw=result.indicators?.quote?.[0]?.high,lowsRaw=result.indicators?.quote?.[0]?.low,opensRaw=result.indicators?.quote?.[0]?.open;
     if(!timestamps||!closes) throw new Error(`Yahoo datos vacíos`);
-    let pairs=timestamps.map((t,i)=>({datetime:new Date(t*1000).toISOString().slice(0,16).replace('T',' '),close:closes[i],high:highsRaw?.[i]??closes[i],low:lowsRaw?.[i]??closes[i]})).filter(p=>p.close!=null);
+    let pairs=timestamps.map((t,i)=>({datetime:new Date(t*1000).toISOString().slice(0,16).replace('T',' '),close:closes[i],high:highsRaw?.[i]??closes[i],low:lowsRaw?.[i]??closes[i],open:opensRaw?.[i]??closes[i]})).filter(p=>p.close!=null);
     if(is4h&&pairs.length>=4){
       const grouped=[];
       // Agregación correcta al reconstruir 4H desde 1H: high=máximo de las 4, low=mínimo
-      // de las 4, close=la última — antes solo se tomaba el close, high/low quedaban mal
+      // de las 4, close=la última, open=la PRIMERA de las 4 (no max/min, es el precio de
+      // entrada a la ventana) — antes solo se tomaba el close, el resto quedaba mal
       for(let i=3;i<pairs.length;i+=4){
         const window=pairs.slice(i-3,i+1);
-        grouped.push({datetime:pairs[i].datetime,close:pairs[i].close,high:Math.max(...window.map(w=>w.high)),low:Math.min(...window.map(w=>w.low))});
+        grouped.push({datetime:pairs[i].datetime,close:pairs[i].close,high:Math.max(...window.map(w=>w.high)),low:Math.min(...window.map(w=>w.low)),open:window[0].open});
       }
       pairs=grouped;
     }
@@ -1989,7 +2078,7 @@ async function fetchYahooFinance(asset,tf){
 }
 
 function pairsToReturns(pairs){
-  const returns=[],dates=[],closes=[],highs=[],lows=[];
+  const returns=[],dates=[],closes=[],highs=[],lows=[],opens=[];
   let prevClose=null;
   for(let i=0;i<pairs.length;i++){
     const c=pairs[i].close;
@@ -2000,19 +2089,20 @@ function pairsToReturns(pairs){
       closes.push(c);
       highs.push(pairs[i].high??c);
       lows.push(pairs[i].low??c);
+      opens.push(pairs[i].open??c);
     }
     prevClose=c;
   }
-  return{returns,dates,closes,highs,lows};
+  return{returns,dates,closes,highs,lows,opens};
 }
 function tdValsToReturns(vals){
-  const raw=vals.map(v=>({close:parseFloat(v.close),high:parseFloat(v.high),low:parseFloat(v.low),datetime:v.datetime,volume:v.volume!=null?parseFloat(v.volume):null})).filter(v=>!isNaN(v.close)&&v.close>0);
-  const returns=[],dates=[],closes=[],volumes=[],highs=[],lows=[];
+  const raw=vals.map(v=>({close:parseFloat(v.close),high:parseFloat(v.high),low:parseFloat(v.low),open:parseFloat(v.open),datetime:v.datetime,volume:v.volume!=null?parseFloat(v.volume):null})).filter(v=>!isNaN(v.close)&&v.close>0);
+  const returns=[],dates=[],closes=[],volumes=[],highs=[],lows=[],opens=[];
   for(let i=1;i<raw.length;i++){
     const ret=(raw[i].close-raw[i-1].close)/raw[i-1].close;
-    if(isFinite(ret)){returns.push(ret);dates.push(raw[i].datetime);closes.push(raw[i].close);volumes.push(raw[i].volume);highs.push(isNaN(raw[i].high)?raw[i].close:raw[i].high);lows.push(isNaN(raw[i].low)?raw[i].close:raw[i].low);}
+    if(isFinite(ret)){returns.push(ret);dates.push(raw[i].datetime);closes.push(raw[i].close);volumes.push(raw[i].volume);highs.push(isNaN(raw[i].high)?raw[i].close:raw[i].high);lows.push(isNaN(raw[i].low)?raw[i].close:raw[i].low);opens.push(isNaN(raw[i].open)?raw[i].close:raw[i].open);}
   }
-  return{returns,closes,dates,volumes,highs,lows};
+  return{returns,closes,dates,volumes,highs,lows,opens};
 }
 
 let yahooPI=null;
@@ -2153,6 +2243,31 @@ function renderAnomalyBanner(id,d){
   el.style.display='block';
 }
 
+function renderDirVolPanel(id){
+  const panel=document.getElementById('dirvol-panel');
+  const badge=document.getElementById('badge-dirvol');
+  const active=activeDirVol[id];
+  if(!panel)return;
+  if(!active){
+    panel.innerHTML='<div class="no-data">Sin sesgo direccional activo — el volumen de compra/venta no se ha desviado lo suficiente de lo normal en el pivote más reciente.</div>';
+    if(badge)badge.textContent='sin señal';
+    return;
+  }
+  const isBuy=active.direction==='compra';
+  const color=isBuy?'var(--safe)':'var(--danger)';
+  const barsAgo=Math.round((Date.now()-active.ts)/60000);
+  if(badge)badge.textContent=`${active.direction.toUpperCase()} · ${Math.abs(active.score).toFixed(1)}σ`;
+  panel.innerHTML=`
+    <div class="ctx-item" style="border-left-color:${color}">
+      <div class="ctx-dot" style="background:${color}"></div>
+      <div style="flex:1">
+        <div class="ctx-text" style="font-weight:700;color:${color}">Sesgo fuerte de ${active.direction} — ${Math.abs(active.score).toFixed(1)}σ sobre lo normal</div>
+        <div class="ctx-text" style="margin-top:3px">La vela cerró ${isBuy?'cerca de su máximo':'cerca de su mínimo'}, con un desbalance de volumen mucho mayor al habitual — ${isBuy?'presión compradora inusual':'presión vendedora inusual'}.</div>
+        <div class="ctx-source" style="margin-top:6px">Detectada hace ~${barsAgo} min</div>
+      </div>
+    </div>`;
+}
+
 
 function renderPriceChart(r,dates,ad,tf){
   const ctx=document.getElementById('price-chart');
@@ -2278,8 +2393,12 @@ function selectAsset(id){
     renderContextAlerts(d.anomalyData.globalScore);
     document.getElementById('badge-chart').outerHTML=sourceBadge(d.source==='yahoo',currentTF,d.source==='simulation',d.source==='ctrader-bridge').replace('class="card-badge','id="badge-chart" class="card-badge');
     if(d.closes&&d.highs&&d.lows){
-      updateDivergenceState(id,d.closes,d.highs,d.lows,d.volumes);
+      updateDivergenceState(id,d.closes,d.highs,d.lows,d.volumes,d.dates);
       renderDivergencePanel(id);
+    }
+    if(d.opens&&d.highs&&d.lows&&d.closes){
+      updateDirVolState(id,d.opens,d.highs,d.lows,d.closes,d.volumes,d.dates);
+      renderDirVolPanel(id);
     }
     renderAnomalyBanner(id,d);
   }
@@ -2364,10 +2483,11 @@ async function fetchAsset(asset, forceFree=false){
   if(bridgeData){
     const sl=bridgeData.returns.slice(-currentTFOut), sd=bridgeData.dates.slice(-currentTFOut),
           sc=bridgeData.closes.slice(-currentTFOut), sv=bridgeData.volumes.slice(-currentTFOut),
-          sh=(bridgeData.highs||bridgeData.closes).slice(-currentTFOut), slo=(bridgeData.lows||bridgeData.closes).slice(-currentTFOut);
+          sh=(bridgeData.highs||bridgeData.closes).slice(-currentTFOut), slo=(bridgeData.lows||bridgeData.closes).slice(-currentTFOut),
+          so=(bridgeData.opens||bridgeData.closes).slice(-currentTFOut);
     const lastPrice=sc[sc.length-1];
     log(`Pepperstone ✓ ${asset.display} — ${sl.length} velas — precio: ${lastPrice}`,'ok');
-    return{returns:sl,closes:sc,dates:sd,volumes:sv,highs:sh,lows:slo,anomalyData:detect(sl,asset.id,sv),source:'ctrader-bridge'};
+    return{returns:sl,closes:sc,dates:sd,volumes:sv,highs:sh,lows:slo,opens:so,anomalyData:detect(sl,asset.id,sv),source:'ctrader-bridge'};
   }
   // forceFree = skip TD entirely, go straight to Yahoo (when credits exhausted)
   if(!forceFree && creditState.used < creditState.limit){
@@ -2376,13 +2496,13 @@ async function fetchAsset(asset, forceFree=false){
       log(`TD [${currentTF}]: ${asset.display}...`,'tf');
       const vals=await fetchTwelveData(asset,currentTF,currentTFOut);
       consumeCredits(1); // count immediately after successful API call
-      const{returns,closes,dates,volumes,highs,lows}=tdValsToReturns(vals);
-      const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut),sv=volumes.slice(-currentTFOut),sh=highs.slice(-currentTFOut),slo=lows.slice(-currentTFOut);
+      const{returns,closes,dates,volumes,highs,lows,opens}=tdValsToReturns(vals);
+      const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut),sv=volumes.slice(-currentTFOut),sh=highs.slice(-currentTFOut),slo=lows.slice(-currentTFOut),so=opens.slice(-currentTFOut);
       tdOk.push(asset.id);
       const lastPrice=sc[sc.length-1];
       const priceStr=lastPrice!=null?(lastPrice<10?lastPrice.toFixed(5):lastPrice>1000?lastPrice.toFixed(2):lastPrice.toFixed(4)):'N/D';
       log(`TD ✓ ${asset.display} [${currentTF}] — ${sl.length} velas — precio: ${priceStr}`,'ok');
-      return{returns:sl,closes:sc,dates:sd,volumes:sv,highs:sh,lows:slo,anomalyData:detect(sl,asset.id,sv),source:'twelvedata'};
+      return{returns:sl,closes:sc,dates:sd,volumes:sv,highs:sh,lows:slo,opens:so,anomalyData:detect(sl,asset.id,sv),source:'twelvedata'};
     }catch(e){
       if(isTDLimitError(e.message)) log(`TD ${asset.display}: créditos agotados — Yahoo Finance`,'warn');
       else log(`TD ${asset.display}: ${e.message} — Yahoo Finance`,'warn');
@@ -2402,11 +2522,11 @@ async function fetchAsset(asset, forceFree=false){
   try{
     log(`Yahoo [${currentTF}]: ${asset.display}...`,'yh');
     const pairs=await fetchYahooFinance(asset,currentTF);
-    const{returns,dates,closes,highs,lows}=pairsToReturns(pairs);
-    const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut),sh=highs.slice(-currentTFOut),slo=lows.slice(-currentTFOut);
+    const{returns,dates,closes,highs,lows,opens}=pairsToReturns(pairs);
+    const sl=returns.slice(-currentTFOut),sd=dates.slice(-currentTFOut),sc=closes.slice(-currentTFOut),sh=highs.slice(-currentTFOut),slo=lows.slice(-currentTFOut),so=opens.slice(-currentTFOut);
     stopYahooProgress(asset.display,Date.now()-t0);
     log(`Yahoo ✓ ${asset.display} [${currentTF}] — ${sl.length} velas`,'yh');
-    return{returns:sl,closes:sc,dates:sd,highs:sh,lows:slo,anomalyData:detect(sl,asset.id),source:'yahoo'};
+    return{returns:sl,closes:sc,dates:sd,highs:sh,lows:slo,opens:so,anomalyData:detect(sl,asset.id),source:'yahoo'};
   }catch(ye){
     stopYahooProgress(asset.display,Date.now()-t0);
     log(`Yahoo ${asset.display}: ${ye.message} — simulación`,'crit');
